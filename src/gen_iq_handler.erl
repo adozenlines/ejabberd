@@ -33,15 +33,21 @@
 %% API
 -export([start_link/3, add_iq_handler/6,
 	 remove_iq_handler/3, stop_iq_handler/3, handle/7,
-	 process_iq/6]).
+	 process_iq/6, check_type/1, transform_module_options/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, code_change/3]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
+-include("jlib.hrl").
 
 -record(state, {host, module, function}).
+
+-type component() :: ejabberd_sm | ejabberd_local.
+-type type() :: no_queue | one_queue | pos_integer() | parallel.
+-type opts() :: no_queue | {one_queue, pid()} | {queues, [pid()]} | parallel.
 
 %%====================================================================
 %% API
@@ -65,7 +71,7 @@ add_iq_handler(Component, Host, NS, Module, Function,
 					     [Host, Module, Function]),
 	  Component:register_iq_handler(Host, NS, Module,
 					Function, {one_queue, Pid});
-      {queues, N} ->
+      N when is_integer(N) ->
 	  Pids = lists:map(fun (_) ->
 				   {ok, Pid} =
 				       supervisor:start_child(ejabberd_iq_sup,
@@ -101,7 +107,7 @@ handle(Host, Module, Function, Opts, From, To, IQ) ->
 	  process_iq(Host, Module, Function, From, To, IQ);
       {one_queue, Pid} -> Pid ! {process_iq, From, To, IQ};
       {queues, Pids} ->
-	  Pid = lists:nth(erlang:phash(now(), str:len(Pids)),
+	  Pid = lists:nth(erlang:phash(now(), length(Pids)),
 			  Pids),
 	  Pid ! {process_iq, From, To, IQ};
       parallel ->
@@ -119,6 +125,23 @@ process_iq(_Host, Module, Function, From, To, IQ) ->
 	     true -> ok
 	  end
     end.
+
+-spec check_type(type()) -> type().
+
+check_type(no_queue) -> no_queue;
+check_type(one_queue) -> one_queue;
+check_type(N) when is_integer(N), N>0 -> N;
+check_type(parallel) -> parallel.
+
+-spec transform_module_options([{atom(), any()}]) -> [{atom(), any()}].
+
+transform_module_options(Opts) ->
+    lists:map(
+      fun({iqdisc, {queues, N}}) ->
+              {iqdisc, N};
+         (Opt) ->
+              Opt
+      end, Opts).
 
 %%====================================================================
 %% gen_server callbacks

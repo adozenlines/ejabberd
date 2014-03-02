@@ -49,6 +49,7 @@
 	 handle_info/2, terminate/2, code_change/3]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
@@ -358,13 +359,13 @@ do_route(OrigFrom, OrigTo, OrigPacket) ->
 		  undefined ->
 		      case [R || R <- Rs, node(R#route.pid) == node()] of
 			[] ->
-			    R = lists:nth(erlang:phash(Value, str:len(Rs)), Rs),
+			    R = lists:nth(erlang:phash(Value, length(Rs)), Rs),
 			    Pid = R#route.pid,
 			    if is_pid(Pid) -> Pid ! {route, From, To, Packet};
 			       true -> drop
 			    end;
 			LRs ->
-			    R = lists:nth(erlang:phash(Value, str:len(LRs)),
+			    R = lists:nth(erlang:phash(Value, length(LRs)),
 					  LRs),
 			    Pid = R#route.pid,
 			    case R#route.local_hint of
@@ -375,7 +376,7 @@ do_route(OrigFrom, OrigTo, OrigPacket) ->
 		      end;
 		  _ ->
 		      SRs = lists:ukeysort(#route.local_hint, Rs),
-		      R = lists:nth(erlang:phash(Value, str:len(SRs)), SRs),
+		      R = lists:nth(erlang:phash(Value, length(SRs)), SRs),
 		      Pid = R#route.pid,
 		      if is_pid(Pid) -> Pid ! {route, From, To, Packet};
 			 true -> drop
@@ -386,14 +387,10 @@ do_route(OrigFrom, OrigTo, OrigPacket) ->
     end.
 
 get_component_number(LDomain) ->
-    case
-      ejabberd_config:get_local_option({domain_balancing_component_number,
-					LDomain}, fun(D) -> D end)
-	of
-      N when is_integer(N), N > 1 -> N;
-      _ -> undefined
-    end.
-
+    ejabberd_config:get_option(
+      {domain_balancing_component_number, LDomain},
+      fun(N) when is_integer(N), N > 1 -> N end,
+      undefined).
 
 update_tables() ->
     case catch mnesia:table_info(route, attributes) of

@@ -28,7 +28,9 @@
 
 -author('alexey@process-one.net').
 
--compile({no_auto_import, [{atom_to_binary, 2}]}).
+-compile({no_auto_import, [atom_to_binary/2,
+                           binary_to_integer/1,
+                           integer_to_binary/1]}).
 
 -export([make_result_iq_reply/1, make_error_reply/3,
 	 make_error_reply/2, make_error_element/2,
@@ -46,9 +48,10 @@
 	 now_to_local_string/1, datetime_string_to_timestamp/1,
 	 decode_base64/1, encode_base64/1, ip_to_list/1,
 	 rsm_encode/1, rsm_encode/2, rsm_decode/1,
-         binary_to_integer/1, binary_to_integer/2,
-         integer_to_binary/1, integer_to_binary/2,
-         atom_to_binary/1, binary_to_atom/1, tuple_to_binary/1]).
+	 binary_to_integer/1, binary_to_integer/2,
+	 integer_to_binary/1, integer_to_binary/2,
+	 atom_to_binary/1, binary_to_atom/1, tuple_to_binary/1,
+	 l2i/1, i2l/1, i2l/2]).
 
 %% TODO: Remove once XEP-0091 is Obsolete
 %% TODO: Remove once XEP-0091 is Obsolete
@@ -597,8 +600,6 @@ rsm_encode_count(Count, Arr) ->
 	    children = [{xmlcdata, i2l(Count)}]}
      | Arr].
 
-i2l(I) when is_integer(I) -> integer_to_binary(I).
-
 -type tz() :: {binary(), {integer(), integer()}} | {integer(), integer()} | utc.
 
 %% Timezone = utc | {Sign::string(), {Hours, Minutes}} | {Hours, Minutes}
@@ -878,3 +879,18 @@ tuple_to_binary(T) ->
 
 atom_to_binary(A) ->
     erlang:atom_to_binary(A, utf8).
+
+
+l2i(I) when is_integer(I) -> I;
+l2i(L) when is_binary(L) -> binary_to_integer(L).
+
+i2l(I) when is_integer(I) -> integer_to_binary(I);
+i2l(L) when is_binary(L) -> L.
+
+i2l(I, N) when is_integer(I) -> i2l(i2l(I), N);
+i2l(L, N) when is_binary(L) ->
+    case str:len(L) of
+      N -> L;
+      C when C > N -> L;
+      _ -> i2l(<<$0, L/binary>>, N)
+    end.

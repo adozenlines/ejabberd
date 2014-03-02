@@ -38,10 +38,11 @@
 	 get_vh_registered_users_number/1,
 	 get_vh_registered_users_number/2, get_password/2,
 	 get_password_s/2, is_user_exists/2, remove_user/2,
-	 remove_user/3, store_type/0, export/1,
-	 plain_password_required/0]).
+	 remove_user/3, store_type/0, export/1, import/1,
+	 import/3, plain_password_required/0]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -record(passwd, {us = {<<"">>, <<"">>} :: {binary(), binary()} | '$1',
                  password = <<"">> :: binary() | scram() | '_'}).
@@ -405,7 +406,7 @@ is_scrammed() ->
 
 is_option_scram() ->
     scram ==
-      ejabberd_config:get_local_option({auth_password_format, ?MYNAME},
+      ejabberd_config:get_option({auth_password_format, ?MYNAME},
                                        fun(V) -> V end).
 
 maybe_alert_password_scrammed_without_option() ->
@@ -473,3 +474,14 @@ export(_Server) ->
          (_Host, _R) ->
               []
       end}].
+
+import(LServer) ->
+    [{<<"select username, password from users;">>,
+      fun([LUser, Password]) ->
+              #passwd{us = {LUser, LServer}, password = Password}
+      end}].
+
+import(_LServer, mnesia, #passwd{} = P) ->
+    mnesia:dirty_write(P);
+import(_, _, _) ->
+    pass.

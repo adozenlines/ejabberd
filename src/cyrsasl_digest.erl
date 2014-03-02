@@ -31,6 +31,7 @@
 -export([start/1, stop/0, mech_new/4, mech_step/2, parse/1]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -behaviour(cyrsasl).
 
@@ -203,11 +204,11 @@ get_local_fqdn() ->
       Str when is_binary(Str) -> Str;
       _ ->
 	  <<"unknown-fqdn, please configure fqdn "
-	    "option in ejabberd.cfg!">>
+	    "option in ejabberd.yml!">>
     end.
 
 get_local_fqdn2() ->
-    case ejabberd_config:get_local_option(
+    case ejabberd_config:get_option(
            fqdn, fun iolist_to_binary/1) of
         ConfiguredFqdn when is_binary(ConfiguredFqdn) ->
             ConfiguredFqdn;
@@ -219,7 +220,7 @@ get_local_fqdn2() ->
     end.
 
 hex(S) ->
-    sha:to_hexlist(S).
+    p1_sha:to_hexlist(S).
 
 proplists_get_bin_value(Key, Pairs, Default) ->
     case proplists:get_value(Key, Pairs, Default) of
@@ -236,7 +237,7 @@ response(KeyVals, User, Passwd, Nonce, AuthzId,
     DigestURI = proplists_get_bin_value(<<"digest-uri">>, KeyVals, <<>>),
     NC = proplists_get_bin_value(<<"nc">>, KeyVals, <<>>),
     QOP = proplists_get_bin_value(<<"qop">>, KeyVals, <<>>),
-    MD5Hash = crypto:md5(<<User/binary, ":", Realm/binary, ":",
+    MD5Hash = erlang:md5(<<User/binary, ":", Realm/binary, ":",
                            Passwd/binary>>),
     A1 = case AuthzId of
 	   <<"">> ->
@@ -252,7 +253,7 @@ response(KeyVals, User, Passwd, Nonce, AuthzId,
 	       <<A2Prefix/binary, ":", DigestURI/binary,
 		 ":00000000000000000000000000000000">>
 	 end,
-    T = <<(hex((crypto:md5(A1))))/binary, ":", Nonce/binary,
+    T = <<(hex((erlang:md5(A1))))/binary, ":", Nonce/binary,
 	  ":", NC/binary, ":", CNonce/binary, ":", QOP/binary,
-	  ":", (hex((crypto:md5(A2))))/binary>>,
-    hex((crypto:md5(T))).
+	  ":", (hex((erlang:md5(A2))))/binary>>,
+    hex((erlang:md5(T))).

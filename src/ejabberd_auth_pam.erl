@@ -43,11 +43,7 @@
 	 plain_password_required/0]).
 
 start(_Host) ->
-    case epam:start() of
-      {ok, _} -> ok;
-      {error, {already_started, _}} -> ok;
-      Err -> Err
-    end.
+    ejabberd:start_app(p1_pam).
 
 set_password(_User, _Server, _Password) ->
     {error, not_allowed}.
@@ -111,13 +107,13 @@ store_type() -> external.
 %% Internal functions
 %%====================================================================
 get_pam_service(Host) ->
-    ejabberd_config:get_local_option(
+    ejabberd_config:get_option(
       {pam_service, Host},
       fun iolist_to_binary/1,
       <<"ejabberd">>).
 
 get_pam_userinfotype(Host) ->
-    ejabberd_config:get_local_option(
+    ejabberd_config:get_option(
       {pam_userinfotype, Host},
       fun(username) -> username;
          (jid) -> jid

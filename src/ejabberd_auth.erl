@@ -35,8 +35,8 @@
 	 check_password/5, check_password_with_authmodule/3,
 	 check_password_with_authmodule/5, try_register/3,
 	 dirty_get_registered_users/0, get_vh_registered_users/1,
-	 get_vh_registered_users/2, export/1,
-	 get_vh_registered_users_number/1,
+	 get_vh_registered_users/2, export/1, import/1,
+	 get_vh_registered_users_number/1, import/3,
 	 get_vh_registered_users_number/2, get_password/2,
 	 get_password_s/2, get_password_with_authmodule/2,
 	 is_user_exists/2, is_user_exists_in_other_modules/3,
@@ -46,6 +46,7 @@
 -export([auth_modules/1]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -422,7 +423,7 @@ auth_modules() ->
 %% Return the list of authenticated modules for a given host
 auth_modules(Server) ->
     LServer = jlib:nameprep(Server),
-    Methods = ejabberd_config:get_local_option(
+    Methods = ejabberd_config:get_option(
                 {auth_method, LServer},
                 fun(V) when is_list(V) ->
                         true = lists:all(fun is_atom/1, V),
@@ -436,3 +437,11 @@ auth_modules(Server) ->
 
 export(Server) ->
     ejabberd_auth_internal:export(Server).
+
+import(Server) ->
+    ejabberd_auth_internal:import(Server).
+
+import(Server, mnesia, Passwd) ->
+    ejabberd_auth_internal:import(Server, mnesia, Passwd);
+import(_, _, _) ->
+    pass.

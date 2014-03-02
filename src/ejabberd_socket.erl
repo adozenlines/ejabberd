@@ -48,18 +48,17 @@
 	 sockname/1, peername/1]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 -include("jlib.hrl").
 
--type sockmod() :: ejabberd_http_poll | ejabberd_bosh |
-                   ejabberd_http_bind | ejabberd_http_bindjson |
-                   ejabberd_http_ws | ejabberd_http_wsjson |
-                   gen_tcp | tls | ejabberd_zlib.
+-type sockmod() :: ejabberd_http_poll |
+                   ejabberd_http_bind |
+                   gen_tcp | p1_tls | ezlib.
 -type receiver() :: pid () | atom().
 -type socket() :: pid() | inet:socket() |
-                  tls:tls_socket() |
-                  ejabberd_zlib:zlib_socket() |
-                  ejabberd_bosh:bosh_socket() |
-                  ejabberd_http_ws:ws_socket() |
+                  p1_tls:tls_socket() |
+                  ezlib:zlib_socket() |
+                  ejabberd_http_bind:bind_socket() |
                   ejabberd_http_poll:poll_socket().
 
 -record(socket_state, {sockmod = gen_tcp :: sockmod(),
@@ -151,30 +150,24 @@ connect(Addr, Port, Opts, Timeout) ->
     end.
 
 starttls(SocketData, TLSOpts) ->
-    {ok, TLSSocket} = tls:tcp_to_tls(SocketData#socket_state.socket, TLSOpts),
+    {ok, TLSSocket} = p1_tls:tcp_to_tls(SocketData#socket_state.socket, TLSOpts),
     ejabberd_receiver:starttls(SocketData#socket_state.receiver, TLSSocket),
-    SocketData#socket_state{socket = TLSSocket, sockmod = tls}.
+    SocketData#socket_state{socket = TLSSocket, sockmod = p1_tls}.
 
 starttls(SocketData, TLSOpts, Data) ->
-    {ok, TLSSocket} = tls:tcp_to_tls(SocketData#socket_state.socket, TLSOpts),
+    {ok, TLSSocket} = p1_tls:tcp_to_tls(SocketData#socket_state.socket, TLSOpts),
     ejabberd_receiver:starttls(SocketData#socket_state.receiver, TLSSocket),
     send(SocketData, Data),
-    SocketData#socket_state{socket = TLSSocket, sockmod = tls}.
+    SocketData#socket_state{socket = TLSSocket, sockmod = p1_tls}.
 
-compress(SocketData) ->
-    {ok, ZlibSocket} = ejabberd_zlib:enable_zlib(
-			 SocketData#socket_state.sockmod,
-			 SocketData#socket_state.socket),
-    ejabberd_receiver:compress(SocketData#socket_state.receiver, ZlibSocket),
-    SocketData#socket_state{socket = ZlibSocket, sockmod = ejabberd_zlib}.
+compress(SocketData) -> compress(SocketData, undefined).
 
 compress(SocketData, Data) ->
-    {ok, ZlibSocket} = ejabberd_zlib:enable_zlib(
-			 SocketData#socket_state.sockmod,
-			 SocketData#socket_state.socket),
-    ejabberd_receiver:compress(SocketData#socket_state.receiver, ZlibSocket),
-    send(SocketData, Data),
-    SocketData#socket_state{socket = ZlibSocket, sockmod = ejabberd_zlib}.
+    {ok, ZlibSocket} =
+	ejabberd_receiver:compress(SocketData#socket_state.receiver,
+				   Data),
+    SocketData#socket_state{socket = ZlibSocket,
+			    sockmod = ezlib}.
 
 reset_stream(SocketData)
     when is_pid(SocketData#socket_state.receiver) ->
@@ -183,7 +176,8 @@ reset_stream(SocketData)
     when is_atom(SocketData#socket_state.receiver) ->
     (SocketData#socket_state.receiver):reset_stream(SocketData#socket_state.socket).
 
-%% sockmod=gen_tcp|tls|ejabberd_zlib
+-spec send(socket_state(), iodata()) -> ok.
+
 send(SocketData, Data) ->
     case catch (SocketData#socket_state.sockmod):send(
 	     SocketData#socket_state.socket, Data) of
@@ -227,10 +221,10 @@ get_sockmod(SocketData) ->
     SocketData#socket_state.sockmod.
 
 get_peer_certificate(SocketData) ->
-    tls:get_peer_certificate(SocketData#socket_state.socket).
+    p1_tls:get_peer_certificate(SocketData#socket_state.socket).
 
 get_verify_result(SocketData) ->
-    tls:get_verify_result(SocketData#socket_state.socket).
+    p1_tls:get_verify_result(SocketData#socket_state.socket).
 
 close(SocketData) ->
     ejabberd_receiver:close(SocketData#socket_state.receiver).

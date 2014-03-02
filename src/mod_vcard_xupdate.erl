@@ -13,9 +13,10 @@
 -export([start/2, stop/1]).
 
 %% hooks
--export([update_presence/3, vcard_set/3, export/1]).
+-export([update_presence/3, vcard_set/3, export/1, import/1, import/3]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
@@ -69,7 +70,7 @@ vcard_set(LUser, LServer, VCARD) ->
       <<>> -> remove_xupdate(LUser, LServer);
       BinVal ->
 	  add_xupdate(LUser, LServer,
-		      sha:sha(jlib:decode_base64(BinVal)))
+		      p1_sha:sha(jlib:decode_base64(BinVal)))
     end,
     ejabberd_sm:force_update_presence(US).
 
@@ -202,3 +203,14 @@ export(_Server) ->
          (_Host, _R) ->
               []
       end}].
+
+import(LServer) ->
+    [{<<"select username, hash from vcard_xupdate;">>,
+      fun([LUser, Hash]) ->
+              #vcard_xupdate{us = {LUser, LServer}, hash = Hash}
+      end}].
+
+import(_LServer, mnesia, #vcard_xupdate{} = R) ->
+    mnesia:dirty_write(R);
+import(_, _, _) ->
+    pass.

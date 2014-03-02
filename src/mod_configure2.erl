@@ -33,6 +33,7 @@
 -export([start/2, stop/1, process_local_iq/3]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
@@ -128,7 +129,7 @@ process_get(#xmlel{name = <<"info">>}) ->
 	    children = []}};
 process_get(#xmlel{name = <<"welcome-message">>,
 		   attrs = Attrs}) ->
-    {Subj, Body} = ejabberd_config:get_local_option(
+    {Subj, Body} = ejabberd_config:get_option(
                      welcome_message,
                      fun({Subj, Body}) ->
                              {iolist_to_binary(Subj),
@@ -144,7 +145,7 @@ process_get(#xmlel{name = <<"welcome-message">>,
 			children = [{xmlcdata, Body}]}]}};
 process_get(#xmlel{name = <<"registration-watchers">>,
 		   attrs = Attrs}) ->
-    SubEls = ejabberd_config:get_local_option(
+    SubEls = ejabberd_config:get_option(
                registration_watchers,
                fun(JIDs) when is_list(JIDs) ->
                        lists:map(
@@ -166,8 +167,8 @@ process_get(#xmlel{name = <<"acls">>, attrs = Attrs}) ->
 process_get(#xmlel{name = <<"access">>,
 		   attrs = Attrs}) ->
     Str = iolist_to_binary(io_lib:format("~p.",
-					 [ets:select(config,
-						     [{{config, {access, '$1'},
+					 [ets:select(local_config,
+						     [{{local_config, {access, '$1'},
 							'$2'},
 						       [],
 						       [{{access, '$1',

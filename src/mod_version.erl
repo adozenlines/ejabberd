@@ -33,6 +33,7 @@
 -export([start/2, stop/1, process_local_iq/3]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
@@ -77,12 +78,8 @@ process_local_iq(_From, To,
     end.
 
 get_os() ->
-    OSType = case os:type() of
-	       {Osfamily, Osname} ->
-		   <<(iolist_to_binary(atom_to_list(Osfamily)))/binary,
-		     "/", (iolist_to_binary(atom_to_list(Osname)))/binary>>;
-	       Osfamily -> iolist_to_binary(atom_to_list(Osfamily))
-	     end,
+    {Osfamily, Osname} = os:type(),
+    OSType = list_to_binary([atom_to_list(Osfamily), $/, atom_to_list(Osname)]),
     OSVersion = case os:version() of
 		  {Major, Minor, Release} ->
 		      iolist_to_binary(io_lib:format("~w.~w.~w",

@@ -40,6 +40,7 @@
 	 adhoc_sm_items/4, adhoc_sm_commands/4]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
@@ -1364,8 +1365,8 @@ get_form(Host, [<<"config">>, <<"access">>], Lang) ->
 							  [{xmlcdata, S}]}
 				       end,
 				       str:tokens(iolist_to_binary(io_lib:format("~p.",
-										 [ets:select(config,
-											     [{{config,
+										 [ets:select(local_config,
+											     [{{local_config,
 												{access,
 												 '$1',
 												 '$2'},
@@ -1755,10 +1756,8 @@ set_form(_From, Host, [<<"config">>, <<"acls">>], _Lang,
 	    {ok, Tokens, _} ->
 		case erl_parse:parse_term(Tokens) of
 		  {ok, ACLs} ->
-		      case acl:add_list(Host, ACLs, true) of
-			ok -> {result, []};
-			_ -> {error, ?ERR_BAD_REQUEST}
-		      end;
+		      acl:add_list(Host, ACLs, true),
+                      {result, []};
 		  _ -> {error, ?ERR_BAD_REQUEST}
 		end;
 	    _ -> {error, ?ERR_BAD_REQUEST}
@@ -1769,8 +1768,8 @@ set_form(_From, Host, [<<"config">>, <<"access">>],
 	 _Lang, XData) ->
     SetAccess = fun (Rs) ->
 			mnesia:transaction(fun () ->
-						   Os = mnesia:select(config,
-								      [{{config,
+						   Os = mnesia:select(local_config,
+								      [{{local_config,
 									 {access,
 									  '$1',
 									  '$2'},
@@ -1786,7 +1785,7 @@ set_form(_From, Host, [<<"config">>, <<"access">>],
 						   lists:foreach(fun ({access,
 								       Name,
 								       Rules}) ->
-									 mnesia:write({config,
+									 mnesia:write({local_config,
 										       {access,
 											Name,
 											Host},

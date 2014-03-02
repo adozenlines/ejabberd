@@ -63,13 +63,6 @@ init([]) ->
 	 brutal_kill,
 	 worker,
 	 [ejabberd_router]},
-    Router_multicast =
-	{ejabberd_router_multicast,
-	 {ejabberd_router_multicast, start_link, []},
-	 permanent,
-	 brutal_kill,
-	 worker,
-	 [ejabberd_router_multicast]},
     SM =
 	{ejabberd_sm,
 	 {ejabberd_sm, start_link, []},
@@ -176,27 +169,11 @@ init([]) ->
 	 infinity,
 	 supervisor,
 	 [ejabberd_tmp_sup]},
-    STUNSupervisor =
-	{ejabberd_stun_sup,
-	 {ejabberd_tmp_sup, start_link,
-	  [ejabberd_stun_sup, ejabberd_stun]},
-	 permanent,
-	 infinity,
-	 supervisor,
-	 [ejabberd_tmp_sup]},
-    CacheTabSupervisor =
-	{cache_tab_sup,
-	 {cache_tab_sup, start_link, []},
-	 permanent,
-	 infinity,
-	 supervisor,
-	 [cache_tab_sup]},
     {ok, {{one_for_one, 10, 1},
 	  [Hooks,
 	   NodeGroups,
 	   SystemMonitor,
 	   Router,
-	   Router_multicast,
 	   SM,
 	   S2S,
 	   Local,
@@ -209,9 +186,7 @@ init([]) ->
 	   HTTPSupervisor,
 	   HTTPPollSupervisor,
 	   IQSupervisor,
-	   STUNSupervisor,
 	   FrontendSocketSupervisor,
-	   CacheTabSupervisor,
 	   Listener]}}.
 
 

@@ -41,6 +41,7 @@
 	 handle_info/3, print_state/1, terminate/3]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
@@ -87,7 +88,7 @@
 
 -define(SUPERVISOR_START,
 	p1_fsm:start(ejabberd_s2s_in, [SockData, Opts],
-                     ?FSMOPTS ++ fsm_limit_opts(Opts)).
+                     ?FSMOPTS ++ fsm_limit_opts(Opts))).
 
 -else.
 
@@ -148,7 +149,7 @@ init([{SockMod, Socket}, Opts]) ->
 	       _ -> none
 	     end,
     {StartTLS, TLSRequired, TLSCertverify} =
-        case ejabberd_config:get_local_option(
+        case ejabberd_config:get_option(
                s2s_use_starttls,
                fun(false) -> false;
                   (true) -> true;
@@ -170,12 +171,21 @@ init([{SockMod, Socket}, Opts]) ->
             required_trusted ->
                 {true, true, true}
         end,
-    TLSOpts = case ejabberd_config:get_local_option(
+    TLSOpts1 = case ejabberd_config:get_option(
                      s2s_certfile,
                      fun iolist_to_binary/1) of
                   undefined -> [];
                   CertFile -> [{certfile, CertFile}]
 	      end,
+    TLSOpts2 = case ejabberd_config:get_option(
+                      s2s_ciphers, fun iolist_to_binary/1) of
+                   undefined -> TLSOpts1;
+                   Ciphers -> [{ciphers, Ciphers} | TLSOpts1]
+               end,
+    TLSOpts = case proplists:get_bool(tls_compression, Opts) of
+                  false -> [compression_none | TLSOpts2];
+                  true -> TLSOpts2
+              end,
     Timer = erlang:start_timer(?S2STIMEOUT, self(), []),
     {ok, wait_for_stream,
      #state{socket = Socket, sockmod = SockMod,
@@ -248,7 +258,7 @@ wait_for_stream({xmlstreamstart, _Name, Attrs},
 		     end,
 	  case SASL of
 	    {error_cert_verif, CertVerifyResult, Certificate} ->
-		CertError = tls:get_cert_verify_string(CertVerifyResult,
+		CertError = p1_tls:get_cert_verify_string(CertVerifyResult,
 						       Certificate),
 		RemoteServer = xml:get_attr_s(<<"from">>, Attrs),
 		?INFO_MSG("Closing s2s connection: ~s <--> ~s (~s)",
@@ -288,7 +298,9 @@ wait_for_stream({xmlstreamstart, _Name, Attrs},
 							  [Server])}),
 	  {next_state, stream_established, StateData};
       {<<"jabber:server">>, <<"jabber:server:dialback">>,
-       _Server, _} ->
+       _Server, _} when
+	      (StateData#state.tls_required and StateData#state.tls_enabled)
+	      or (not StateData#state.tls_required) ->
 	  send_text(StateData, ?STREAM_HEADER(<<"">>)),
 	  {next_state, stream_established, StateData};
       _ ->
@@ -318,8 +330,8 @@ wait_for_feature_request({xmlstreamelement, El},
 	       SockMod == gen_tcp ->
 	  ?DEBUG("starttls", []),
 	  Socket = StateData#state.socket,
-	  TLSOpts = case
-		      ejabberd_config:get_local_option(
+	  TLSOpts1 = case
+		      ejabberd_config:get_option(
                         {domain_certfile, StateData#state.server},
                         fun iolist_to_binary/1) of
 		      undefined -> StateData#state.tls_options;
@@ -327,6 +339,14 @@ wait_for_feature_request({xmlstreamelement, El},
 			  [{certfile, CertFile} | lists:keydelete(certfile, 1,
 								  StateData#state.tls_options)]
 		    end,
+          TLSOpts = case ejabberd_config:get_option(
+                           {s2s_tls_compression, StateData#state.server},
+                           fun(true) -> true;
+                              (false) -> false
+                           end, true) of
+                        true -> lists:delete(compression_none, TLSOpts1);
+                        false -> [compression_none | TLSOpts1]
+                    end,
 	  TLSSocket = (StateData#state.sockmod):starttls(Socket,
 							 TLSOpts,
 							 xml:element_to_binary(#xmlel{name
@@ -830,7 +850,7 @@ fsm_limit_opts(Opts) ->
     case lists:keysearch(max_fsm_queue, 1, Opts) of
       {value, {_, N}} when is_integer(N) -> [{max_queue, N}];
       _ ->
-	  case ejabberd_config:get_local_option(
+	  case ejabberd_config:get_option(
                  max_fsm_queue,
                  fun(I) when is_integer(I), I > 0 -> I end) of
             undefined -> [];

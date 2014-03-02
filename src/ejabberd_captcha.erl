@@ -43,8 +43,9 @@
 -include("jlib.hrl").
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
--include("web/ejabberd_http.hrl").
+-include("ejabberd_http.hrl").
 
 -define(VFIELD(Type, Var, Value),
 	#xmlel{name = <<"field">>,
@@ -92,7 +93,7 @@ create_captcha(SID, From, To, Lang, Limiter, Args) ->
 	  Id = <<(randoms:get_string())/binary>>,
 	  B64Image = jlib:encode_base64((Image)),
 	  JID = jlib:jid_to_string(From),
-	  CID = <<"sha1+", (sha:sha(Image))/binary,
+	  CID = <<"sha1+", (p1_sha:sha(Image))/binary,
 		  "@bob.xmpp.org">>,
 	  Data = #xmlel{name = <<"data">>,
 			attrs =
@@ -184,7 +185,7 @@ create_captcha_x(SID, To, Lang, Limiter, HeadEls,
       {ok, Type, Key, Image} ->
 	  Id = <<(randoms:get_string())/binary>>,
 	  B64Image = jlib:encode_base64((Image)),
-	  CID = <<"sha1+", (sha:sha(Image))/binary,
+	  CID = <<"sha1+", (p1_sha:sha(Image))/binary,
 		  "@bob.xmpp.org">>,
 	  Data = #xmlel{name = <<"data">>,
 			attrs =
@@ -503,7 +504,7 @@ do_create_image(Key) ->
     end.
 
 get_prog_name() ->
-    case ejabberd_config:get_local_option(
+    case ejabberd_config:get_option(
            captcha_cmd,
            fun(FileName) ->
                    F = iolist_to_binary(FileName),
@@ -520,7 +521,7 @@ get_prog_name() ->
     end.
 
 get_url(Str) ->
-    CaptchaHost = ejabberd_config:get_local_option(
+    CaptchaHost = ejabberd_config:get_option(
                     captcha_host,
                     fun iolist_to_binary/1,
                     <<"">>),
@@ -548,7 +549,7 @@ get_transfer_protocol(PortString) ->
     get_captcha_transfer_protocol(PortListeners).
 
 get_port_listeners(PortNumber) ->
-    AllListeners = ejabberd_config:get_local_option(listen, fun(V) -> V end),
+    AllListeners = ejabberd_config:get_option(listen, fun(V) -> V end),
     lists:filter(fun ({{Port, _Ip, _Netp}, _Module1,
 		       _Opts1})
 			 when Port == PortNumber ->
@@ -578,7 +579,7 @@ get_captcha_transfer_protocol([_ | Listeners]) ->
 
 is_limited(undefined) -> false;
 is_limited(Limiter) ->
-    case ejabberd_config:get_local_option(
+    case ejabberd_config:get_option(
            captcha_limit,
            fun(I) when is_integer(I), I > 0 -> I end) of
       undefined -> false;

@@ -31,29 +31,30 @@
 -export([start/0]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 start() ->
-    case catch ejabberd_odbc_sup:module_info() of
-      {'EXIT', {undef, _}} ->
-	  ?INFO_MSG("ejabberd has not been compiled with "
-		    "relational database support. Skipping "
-		    "database startup.",
-		    []);
-      _ -> start_hosts()
+    case lists:any(fun(H) -> needs_odbc(H) /= false end,
+                   ?MYHOSTS) of
+        true ->
+            start_hosts();
+        false ->
+            ok
     end.
 
 %% Start relationnal DB module on the nodes where it is needed
 start_hosts() ->
     lists:foreach(fun (Host) ->
 			  case needs_odbc(Host) of
-			    true -> start_odbc(Host);
+			    {true, App} -> start_odbc(Host, App);
 			    false -> ok
 			  end
 		  end,
 		  ?MYHOSTS).
 
 %% Start the ODBC module on the given host
-start_odbc(Host) ->
+start_odbc(Host, App) ->
+    ejabberd:start_app(App),
     Supervisor_name = gen_mod:get_module_proc(Host,
 					      ejabberd_odbc_sup),
     ChildSpec = {Supervisor_name,
@@ -65,11 +66,19 @@ start_odbc(Host) ->
 	  ?ERROR_MSG("Start of supervisor ~p failed:~n~p~nRetrying."
 		     "..~n",
 		     [Supervisor_name, _Error]),
-	  start_odbc(Host)
+	  start_odbc(Host, App)
     end.
 
-%% Returns true if we have configured odbc_server for the given host
+%% Returns {true, App} if we have configured odbc for the given host
 needs_odbc(Host) ->
     LHost = jlib:nameprep(Host),
-    ejabberd_config:get_local_option(
-      {odbc_server, LHost}, fun(_) -> true end, false).
+    case ejabberd_config:get_option({odbc_type, LHost},
+                                    fun(mysql) -> mysql;
+                                       (pgsql) -> pgsql;
+                                       (odbc) -> odbc
+                                    end, undefined) of
+        mysql -> {true, p1_mysql};
+        pgsql -> {true, p1_pgsql};
+        odbc -> {true, odbc};
+        undefined -> false
+    end.

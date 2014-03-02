@@ -42,18 +42,23 @@
 	 remove_expired_messages/1,
 	 remove_old_messages/2,
 	 remove_user/2,
+         import/1,
+         import/3,
+         export/1,
 	 get_queue_length/2,
+         get_offline_els/2,
 	 webadmin_page/3,
 	 webadmin_user/4,
 	 webadmin_user_parse_query/5]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
--include("web/ejabberd_http.hrl").
+-include("ejabberd_http.hrl").
 
--include("web/ejabberd_web_admin.hrl").
+-include("ejabberd_web_admin.hrl").
 
 -record(offline_msg,
 	{us = {<<"">>, <<"">>} :: {binary(), binary()},
@@ -519,6 +524,40 @@ webadmin_page(_, Host,
     Res = user_queue(U, Host, Query, Lang), {stop, Res};
 webadmin_page(Acc, _, _) -> Acc.
 
+get_offline_els(LUser, LServer) ->
+    get_offline_els(LUser, LServer, gen_mod:db_type(LServer, ?MODULE)).
+
+get_offline_els(LUser, LServer, mnesia) ->
+    Msgs = read_all_msgs(LUser, LServer, mnesia),
+    lists:map(
+      fun(Msg) ->
+              {route, From, To, Packet} = offline_msg_to_route(LServer, Msg),
+              jlib:replace_from_to(From, To, Packet)
+      end, Msgs);
+get_offline_els(LUser, LServer, odbc) ->
+    Username = ejabberd_odbc:escape(LUser),
+    case catch ejabberd_odbc:sql_query(LServer,
+                                       [<<"select xml from spool where username='">>,
+                                        Username, <<"' order by seq;">>]) of
+        {selected, [<<"xml">>], Rs} ->
+            lists:flatmap(
+              fun([XML]) ->
+                      case xml_stream:parse_element(XML) of
+                          #xmlel{} = El ->
+                              case offline_msg_to_route(LServer, El) of
+                                  {route, _, _, NewEl} ->
+                                      [NewEl];
+                                  error ->
+                                      []
+                              end;
+                          _ ->
+                              []
+                      end
+              end, Rs);
+        _ ->
+            []
+    end.
+
 offline_msg_to_route(LServer, #offline_msg{} = R) ->
     El = #xmlel{children = Els} = R#offline_msg.packet,
     {route, R#offline_msg.from, R#offline_msg.to,
@@ -830,9 +869,71 @@ webadmin_user_parse_query(Acc, _Action, _User, _Server,
 count_offline_messages(LUser, LServer) ->
     Username = ejabberd_odbc:escape(LUser),
     case catch odbc_queries:count_records_where(
-		 LServer, "spool", "where username='" ++ Username ++ "'") of
+		 LServer, "spool",
+                 <<"where username='", Username/binary, "'">>) of
         {selected, [_], [{Res}]} ->
-            list_to_integer(Res);
+            jlib:binary_to_integer(Res);
         _ ->
             0
     end.
+
+export(_Server) ->
+    [{offline_msg,
+      fun(Host, #offline_msg{us = {LUser, LServer},
+                             timestamp = TimeStamp, from = From, to = To,
+                             packet = Packet})
+            when LServer == Host ->
+              Username = ejabberd_odbc:escape(LUser),
+              #xmlel{name = Name, attrs = Attrs, children = Els} =
+                  Packet,
+              Attrs2 =
+                  jlib:replace_from_to_attrs(jlib:jid_to_string(From),
+                                             jlib:jid_to_string(To),
+                                             Attrs),
+              NewPacket = #xmlel{name = Name, attrs = Attrs2,
+                                 children =
+                                     Els ++
+                                     [jlib:timestamp_to_xml(
+                                        calendar:now_to_universal_time(TimeStamp),
+                                        utc,
+                                        jlib:make_jid(<<"">>,
+                                                      LServer,
+                                                      <<"">>),
+                                        <<"Offline Storage">>),
+                                      jlib:timestamp_to_xml(
+                                        calendar:now_to_universal_time(TimeStamp))]},
+              XML =
+                  ejabberd_odbc:escape(xml:element_to_binary(NewPacket)),
+              [[<<"delete from spool where username='">>, Username, <<"';">>],
+               [<<"insert into spool(username, xml) values ('">>,
+                Username, <<"', '">>, XML, <<"');">>]];
+         (_Host, _R) ->
+              []
+      end}].
+
+import(LServer) ->
+    [{<<"select username, xml from spool;">>,
+      fun([LUser, XML]) ->
+              El = #xmlel{} = xml_stream:parse_element(XML),
+              From = #jid{} = jlib:string_to_jid(
+                                xml:get_attr_s(<<"from">>, El#xmlel.attrs)),
+              To = #jid{} = jlib:string_to_jid(
+                              xml:get_attr_s(<<"to">>, El#xmlel.attrs)),
+              Stamp = xml:get_path_s(El, [{elem, <<"delay">>},
+                                          {attr, <<"stamp">>}]),
+              TS = case jlib:datetime_string_to_timestamp(Stamp) of
+                       {_, _, _} = Now ->
+                           Now;
+                       undefined ->
+                           now()
+                   end,
+              Expire = find_x_expire(TS, El#xmlel.children),
+              #offline_msg{us = {LUser, LServer},
+                           from = From, to = To,
+                           timestamp = TS, expire = Expire}
+      end}].
+
+import(_LServer, mnesia, #offline_msg{} = Msg) ->
+    mnesia:dirty_write(Msg);
+import(_, _, _) ->
+    pass.

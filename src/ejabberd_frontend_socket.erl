@@ -104,9 +104,7 @@ starttls(FsmRef, TLSOpts, Data) ->
     gen_server:call(FsmRef, {starttls, TLSOpts, Data}),
     FsmRef.
 
-compress(FsmRef) ->
-    gen_server:call(FsmRef, compress),
-    FsmRef.
+compress(FsmRef) -> compress(FsmRef, undefined).
 
 compress(FsmRef, Data) ->
     gen_server:call(FsmRef, {compress, Data}), FsmRef.
@@ -172,41 +170,28 @@ init([Module, SockMod, Socket, Opts, Receiver]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({starttls, TLSOpts}, _From, State) ->
-    {ok, TLSSocket} = tls:tcp_to_tls(State#state.socket, TLSOpts),
+    {ok, TLSSocket} = p1_tls:tcp_to_tls(State#state.socket, TLSOpts),
     ejabberd_receiver:starttls(State#state.receiver, TLSSocket),
     Reply = ok,
-    {reply, Reply, State#state{socket = TLSSocket, sockmod = tls},
+    {reply, Reply, State#state{socket = TLSSocket, sockmod = p1_tls},
      ?HIBERNATE_TIMEOUT};
 
 handle_call({starttls, TLSOpts, Data}, _From, State) ->
-    {ok, TLSSocket} = tls:tcp_to_tls(State#state.socket, TLSOpts),
+    {ok, TLSSocket} = p1_tls:tcp_to_tls(State#state.socket, TLSOpts),
     ejabberd_receiver:starttls(State#state.receiver, TLSSocket),
     catch (State#state.sockmod):send(
 	    State#state.socket, Data),
     Reply = ok,
     {reply, Reply,
-     State#state{socket = TLSSocket, sockmod = tls},
-     ?HIBERNATE_TIMEOUT};
-
-handle_call(compress, _From, State) ->
-    {ok, ZlibSocket} = ejabberd_zlib:enable_zlib(
-			 State#state.sockmod,
-			 State#state.socket),
-    ejabberd_receiver:compress(State#state.receiver, ZlibSocket),
-    Reply = ok,
-    {reply, Reply, State#state{socket = ZlibSocket, sockmod = ejabberd_zlib},
+     State#state{socket = TLSSocket, sockmod = p1_tls},
      ?HIBERNATE_TIMEOUT};
 
 handle_call({compress, Data}, _From, State) ->
-    {ok, ZlibSocket} = ejabberd_zlib:enable_zlib(
-			 State#state.sockmod,
-			 State#state.socket),
-    ejabberd_receiver:compress(State#state.receiver, ZlibSocket),
-    catch (State#state.sockmod):send(
-	    State#state.socket, Data),
+    {ok, ZlibSocket} =
+        ejabberd_receiver:compress(State#state.receiver, Data),
     Reply = ok,
     {reply, Reply,
-     State#state{socket = ZlibSocket, sockmod = ejabberd_zlib},
+     State#state{socket = ZlibSocket, sockmod = ezlib},
      ?HIBERNATE_TIMEOUT};
 handle_call(reset_stream, _From, State) ->
     ejabberd_receiver:reset_stream(State#state.receiver),
@@ -225,10 +210,10 @@ handle_call(get_sockmod, _From, State) ->
     Reply = State#state.sockmod,
     {reply, Reply, State, ?HIBERNATE_TIMEOUT};
 handle_call(get_peer_certificate, _From, State) ->
-    Reply = tls:get_peer_certificate(State#state.socket),
+    Reply = p1_tls:get_peer_certificate(State#state.socket),
     {reply, Reply, State, ?HIBERNATE_TIMEOUT};
 handle_call(get_verify_result, _From, State) ->
-    Reply = tls:get_verify_result(State#state.socket),
+    Reply = p1_tls:get_verify_result(State#state.socket),
     {reply, Reply, State, ?HIBERNATE_TIMEOUT};
 handle_call(close, _From, State) ->
     ejabberd_receiver:close(State#state.receiver),
@@ -295,16 +280,15 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%% Internal functions
 %%--------------------------------------------------------------------
 check_starttls(SockMod, Socket, Receiver, Opts) ->
-    TLSEnabled = lists:member(tls, Opts),
+    TLSEnabled = proplists:get_bool(tls, Opts),
     TLSOpts = lists:filter(fun({certfile, _}) -> true;
 			      (_) -> false
 			   end, Opts),
     if
 	TLSEnabled ->
-	    {ok, TLSSocket} = tls:tcp_to_tls(Socket, TLSOpts),
+	    {ok, TLSSocket} = p1_tls:tcp_to_tls(Socket, TLSOpts),
 	    ejabberd_receiver:starttls(Receiver, TLSSocket),
-	    {tls, TLSSocket};
+	    {p1_tls, TLSSocket};
 	true ->
 	    {SockMod, Socket}
     end.
-

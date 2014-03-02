@@ -47,7 +47,8 @@
 	 del_aux_field/2,
 	 get_subscription/2,
 	 broadcast/4,
-	 get_subscribed/1]).
+	 get_subscribed/1,
+         transform_listen_option/2]).
 
 %% gen_fsm callbacks
 -export([init/1,
@@ -67,6 +68,7 @@
      ]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 -include("jlib.hrl").
 
@@ -92,7 +94,7 @@
 		tls_options = [],
 		authenticated = false,
 		jid,
-		user = "", server = ?MYNAME, resource = <<"">>,
+		user = "", server = <<"">>, resource = <<"">>,
 		sid,
 		pres_t = ?SETS:new(),
 		pres_f = ?SETS:new(),
@@ -232,18 +234,22 @@ init([{SockMod, Socket}, Opts]) ->
 		  {value, {_, XS}} -> XS;
 		  _ -> false
 		end,
-    Zlib = lists:member(zlib, Opts),
-    StartTLS = lists:member(starttls, Opts),
-    StartTLSRequired = lists:member(starttls_required,
-				    Opts),
-    TLSEnabled = lists:member(tls, Opts),
+    Zlib = proplists:get_bool(zlib, Opts),
+    StartTLS = proplists:get_bool(starttls, Opts),
+    StartTLSRequired = proplists:get_bool(starttls_required, Opts),
+    TLSEnabled = proplists:get_bool(tls, Opts),
     TLS = StartTLS orelse
 	    StartTLSRequired orelse TLSEnabled,
     TLSOpts1 = lists:filter(fun ({certfile, _}) -> true;
+				({ciphers, _}) -> true;
 				(_) -> false
 			    end,
 			    Opts),
-    TLSOpts = [verify_none | TLSOpts1],
+    TLSOpts2 = case proplists:get_bool(tls_compression, Opts) of
+                   false -> [compression_none | TLSOpts1];
+                   true -> TLSOpts1
+               end,
+    TLSOpts = [verify_none | TLSOpts2],
     IP = peerip(SockMod, Socket),
     %% Check if IP is blacklisted:
     case is_ip_blacklisted(IP) of
@@ -282,17 +288,19 @@ get_subscribed(FsmRef) ->
 %%----------------------------------------------------------------------
 
 wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
-    DefaultLang = case ?MYLANG of
-	undefined -> <<"en">>;
-	DL -> DL
-    end,
+    DefaultLang = ?MYLANG,
     case xml:get_attr_s(<<"xmlns:stream">>, Attrs) of
 	?NS_STREAM ->
-	    Server = jlib:nameprep(xml:get_attr_s(<<"to">>, Attrs)),
+            Server =
+                case StateData#state.server of
+                    <<"">> ->
+                        jlib:nameprep(xml:get_attr_s(<<"to">>, Attrs));
+                    S -> S
+                end,
 	    case lists:member(Server, ?MYHOSTS) of
 		true ->
 		    Lang = case xml:get_attr_s(<<"xml:lang">>, Attrs) of
-			       Lang1 when length(Lang1) =< 35 ->
+			       Lang1 when size(Lang1) =< 35 ->
 				   %% As stated in BCP47, 4.4.1:
 				   %% Protocols or specifications that
 				   %% specify limited buffer sizes for
@@ -338,7 +346,7 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
 				    CompressFeature =
 					case Zlib andalso
 					    ((SockMod == gen_tcp) orelse
-					     (SockMod == tls)) of
+					     (SockMod == p1_tls)) of
 					    true ->
 						[#xmlel{name = <<"compression">>,
 							attrs = [{<<"xmlns">>, ?NS_FEATURE_COMPRESS}],
@@ -523,7 +531,7 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 	      of
 	    true ->
 		DGen = fun (PW) ->
-			       sha:sha(<<(StateData#state.streamid)/binary, PW/binary>>)
+			       p1_sha:sha(<<(StateData#state.streamid)/binary, PW/binary>>)
 		       end,
 		case ejabberd_auth:check_password_with_authmodule(U,
 								  StateData#state.server,
@@ -538,8 +546,8 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 				    StateData#state.socket),
 			Info = [{ip, StateData#state.ip}, {conn, Conn},
 				    {auth_module, AuthModule}],
-			Res1 = jlib:make_result_iq_reply(El),
-			Res = Res1#xmlel{children = []},
+                        Res = jlib:make_result_iq_reply(
+                                El#xmlel{children = []}),
 			send_element(StateData, Res),
 			ejabberd_sm:open_session(SID, U, StateData#state.server, R, Info),
 			change_shaper(StateData, JID),
@@ -644,6 +652,7 @@ wait_for_feature_request({xmlstreamelement, El},
 				StateData#state{streamid = new_id(),
 						authenticated = true,
 						auth_module = AuthModule,
+                                                sasl_state = undefined,
 						user = U});
 	    {continue, ServerOut, NewSASLState} ->
 		send_element(StateData,
@@ -680,7 +689,7 @@ wait_for_feature_request({xmlstreamelement, El},
 	  when TLS == true, TLSEnabled == false,
 	       SockMod == gen_tcp ->
 	  TLSOpts = case
-		      ejabberd_config:get_local_option(
+		      ejabberd_config:get_option(
                         {domain_certfile, StateData#state.server},
                         fun iolist_to_binary/1)
 			of
@@ -708,7 +717,7 @@ wait_for_feature_request({xmlstreamelement, El},
 					 tls_enabled = true});
       {?NS_COMPRESS, <<"compress">>}
 	  when Zlib == true,
-	       (SockMod == gen_tcp) or (SockMod == tls) ->
+	       (SockMod == gen_tcp) or (SockMod == p1_tls) ->
 	  case xml:get_subtag(El, <<"method">>) of
 	    false ->
 		send_element(StateData,
@@ -801,6 +810,7 @@ wait_for_sasl_response({xmlstreamelement, El},
 				StateData#state{streamid = new_id(),
 						authenticated = true,
 						auth_module = AuthModule,
+                                                sasl_state = undefined,
 						user = U});
 	    {ok, Props, ServerOut} ->
 		(StateData#state.sockmod):reset_stream(StateData#state.socket),
@@ -821,6 +831,7 @@ wait_for_sasl_response({xmlstreamelement, El},
 				StateData#state{streamid = new_id(),
 						authenticated = true,
 						auth_module = AuthModule,
+                                                sasl_state = undefined,
 						user = U});
 	    {continue, ServerOut, NewSASLState} ->
 		send_element(StateData,
@@ -874,7 +885,7 @@ resource_conflict_action(U, S, R) ->
 						      R)
 		    of
 		  true ->
-		      ejabberd_config:get_local_option(
+		      ejabberd_config:get_option(
                         {resource_conflict, S},
                         fun(setresource) -> setresource;
                            (closeold) -> closeold;
@@ -897,7 +908,8 @@ resource_conflict_action(U, S, R) ->
       closenew -> closenew;
       setresource ->
 	  Rnew = iolist_to_binary([randoms:get_string()
-                                   | tuple_to_list(now())]),
+                                   | [jlib:integer_to_binary(X)
+                                      || X <- tuple_to_list(now())]]),
 	  {accept_resource, Rnew}
     end.
 
@@ -912,7 +924,8 @@ wait_for_bind({xmlstreamelement, El}, StateData) ->
 		error -> error;
 		<<"">> ->
                       iolist_to_binary([randoms:get_string()
-                                        | tuple_to_list(now())]);
+                                        | [jlib:integer_to_binary(X)
+                                           || X <- tuple_to_list(now())]]);
 		Resource -> Resource
 	      end,
 	  case R of
@@ -973,7 +986,7 @@ wait_for_session({xmlstreamelement, El}, StateData) ->
 		    ?INFO_MSG("(~w) Opened session for ~s",
 			      [StateData#state.socket,
 			       jlib:jid_to_string(JID)]),
-		    Res = jlib:make_result_iq_reply(El),
+                    Res = jlib:make_result_iq_reply(El#xmlel{children = []}),
 		    send_element(StateData, Res),
 		    change_shaper(StateData, JID),
 		    {Fs, Ts} = ejabberd_hooks:run_fold(
@@ -1735,11 +1748,11 @@ get_auth_tags([], U, P, D, R) ->
 get_conn_type(StateData) ->
     case (StateData#state.sockmod):get_sockmod(StateData#state.socket) of
     gen_tcp -> c2s;
-    tls -> c2s_tls;
-    ejabberd_zlib ->
-	case ejabberd_zlib:get_sockmod((StateData#state.socket)#socket_state.socket) of
+    p1_tls -> c2s_tls;
+    ezlib ->
+	case ezlib:get_sockmod((StateData#state.socket)#socket_state.socket) of
 	    gen_tcp -> c2s_compressed;
-	    tls -> c2s_compressed_tls
+	    p1_tls -> c2s_compressed_tls
 	end;
     ejabberd_http_poll -> http_poll;
     ejabberd_http_bind -> http_bind;
@@ -1874,10 +1887,7 @@ presence_track(From, To, Packet, StateData) ->
 	  A = remove_element(LTo, StateData#state.pres_a),
 	  StateData#state{pres_a = A};
       <<"subscribe">> ->
-	  ejabberd_hooks:run(roster_out_subscription, Server,
-			     [User, Server, To, subscribe]),
-	  check_privacy_route(From, StateData,
-			      jlib:jid_remove_resource(From), To, Packet),
+	  try_roster_subscribe(subscribe, User, Server, From, To, Packet, StateData),
 	  StateData;
       <<"subscribed">> ->
 	  ejabberd_hooks:run(roster_out_subscription, Server,
@@ -1886,10 +1896,7 @@ presence_track(From, To, Packet, StateData) ->
 			      jlib:jid_remove_resource(From), To, Packet),
 	  StateData;
       <<"unsubscribe">> ->
-	  ejabberd_hooks:run(roster_out_subscription, Server,
-			     [User, Server, To, unsubscribe]),
-	  check_privacy_route(From, StateData,
-			      jlib:jid_remove_resource(From), To, Packet),
+	  try_roster_subscribe(unsubscribe, User, Server, From, To, Packet, StateData),
 	  StateData;
       <<"unsubscribed">> ->
 	  ejabberd_hooks:run(roster_out_subscription, Server,
@@ -1938,20 +1945,34 @@ is_privacy_allow(StateData, From, To, Packet, Dir) ->
     allow ==
       privacy_check_packet(StateData, From, To, Packet, Dir).
 
+%%% Check ACL before allowing to send a subscription stanza
+try_roster_subscribe(Type, User, Server, From, To, Packet, StateData) ->
+    JID1 = jlib:make_jid(User, Server, <<"">>),
+    Access = gen_mod:get_module_opt(Server, mod_roster, access, fun(A) when is_atom(A) -> A end, all),
+    case acl:match_rule(Server, Access, JID1) of
+	deny ->
+	    %% Silently drop this (un)subscription request
+	    ok;
+	allow ->
+	    ejabberd_hooks:run(roster_out_subscription,
+			       Server,
+			       [User, Server, To, Type]),
+	    check_privacy_route(From, StateData, jlib:jid_remove_resource(From),
+				To, Packet)
+    end.
+
 %% Send presence when disconnecting
 presence_broadcast(StateData, From, JIDSet, Packet) ->
     JIDs = ?SETS:to_list(JIDSet),
     JIDs2 = format_and_check_privacy(From, StateData, Packet, JIDs, out),
-    Server = StateData#state.server,
-    send_multiple(From, Server, JIDs2, Packet).
+    send_multiple(StateData, From, JIDs2, Packet).
 
 %% Send presence when updating presence
 presence_broadcast_to_trusted(StateData, From, Trusted, JIDSet, Packet) ->
     JIDs = ?SETS:to_list(JIDSet),
     JIDs_trusted = [JID || JID <- JIDs, ?SETS:is_element(JID, Trusted)],
     JIDs2 = format_and_check_privacy(From, StateData, Packet, JIDs_trusted, out),
-    Server = StateData#state.server,
-    send_multiple(From, Server, JIDs2, Packet).
+    send_multiple(StateData, From, JIDs2, Packet).
 
 %% Send presence when connecting
 presence_broadcast_first(From, StateData, Packet) ->
@@ -1963,7 +1984,7 @@ presence_broadcast_first(From, StateData, Packet) ->
     PacketProbe = #xmlel{name = <<"presence">>, attrs = [{<<"type">>,<<"probe">>}], children = []},
     JIDs2Probe = format_and_check_privacy(From, StateData, Packet, JIDsProbe, out),
     Server = StateData#state.server,
-    send_multiple(From, Server, JIDs2Probe, PacketProbe),
+    send_multiple(StateData, From, JIDs2Probe, PacketProbe),
     {As, JIDs} =
 	?SETS:fold(
 	   fun(JID, {A, JID_list}) ->
@@ -1973,7 +1994,7 @@ presence_broadcast_first(From, StateData, Packet) ->
 	   StateData#state.pres_f),
     JIDs2 = format_and_check_privacy(From, StateData, Packet, JIDs, out),
     Server = StateData#state.server,
-    send_multiple(From, Server, JIDs2, Packet),
+    send_multiple(StateData, From, JIDs2, Packet),
     StateData#state{pres_a = As}.
 
 format_and_check_privacy(From, StateData, Packet, JIDs, Dir) ->
@@ -1994,9 +2015,16 @@ format_and_check_privacy(From, StateData, Packet, JIDs, Dir) ->
       end,
       FJIDs).
 
-send_multiple(From, Server, JIDs, Packet) ->
-    ejabberd_router_multicast:route_multicast(From, Server, JIDs, Packet).
-
+send_multiple(StateData, From, JIDs, Packet) ->
+    lists:foreach(
+      fun(JID) ->
+              case privacy_check_packet(StateData, From, JID, Packet, out) of
+                  deny ->
+                      ok;
+                  allow ->
+                      ejabberd_router:route(From, JID, Packet)
+              end
+      end, JIDs).
 
 remove_element(E, Set) ->
     case (?SETS):is_element(E, Set) of
@@ -2270,7 +2298,7 @@ fsm_limit_opts(Opts) ->
     case lists:keysearch(max_fsm_queue, 1, Opts) of
       {value, {_, N}} when is_integer(N) -> [{max_queue, N}];
       _ ->
-	  case ejabberd_config:get_local_option(
+	  case ejabberd_config:get_option(
                  max_fsm_queue,
                  fun(I) when is_integer(I), I > 0 -> I end) of
             undefined -> [];
@@ -2368,3 +2396,6 @@ pack_string(String, Pack) ->
       {value, PackedString} -> {PackedString, Pack};
       none -> {String, gb_trees:insert(String, String, Pack)}
     end.
+
+transform_listen_option(Opt, Opts) ->
+    [Opt|Opts].

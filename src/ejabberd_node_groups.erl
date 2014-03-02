@@ -40,11 +40,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--ifdef(SSL40).
 -define(PG2, pg2).
--else.
--define(PG2, pg2_backport).
--endif.
 
 -record(state, {}).
 
@@ -88,7 +84,12 @@ get_closest_node(Name) ->
 %%--------------------------------------------------------------------
 init([]) ->
     {FE, BE} =
-	case ejabberd_config:get_local_option(node_type, fun(N) -> N end) of
+	case ejabberd_config:get_option(
+               node_type,
+               fun(frontend) -> frontend;
+                  (backend) -> backend;
+                  (generic) -> generic
+               end, generic) of
 	    frontend ->
 		{true, false};
 	    backend ->
