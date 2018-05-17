@@ -1,6 +1,6 @@
 %%%----------------------------------------------------------------------
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2018   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -12,15 +12,14 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
 -include("ns.hrl").
--include("xml.hrl").
+-include("fxml.hrl").
 
 -define(STANZA_ERROR(Code, Type, Condition),
 	#xmlel{name = <<"error">>,
@@ -472,15 +471,15 @@
 
 -type(iq() :: iq_request() | iq_reply()).
 
--record(rsm_in, {max :: integer(),
-                 direction :: before | aft,
-                 id :: binary(),
-                 index :: integer()}).
+-record(rsm_in, {max :: integer() | error | undefined,
+                 direction :: before | aft | undefined,
+                 id :: binary() | undefined,
+                 index :: integer() | error | undefined}).
 
--record(rsm_out, {count :: integer(),
-                  index :: integer(),
-                  first :: binary(),
-                  last :: binary()}).
+-record(rsm_out, {count :: integer() | undefined,
+                  index :: integer() | undefined,
+                  first :: binary() | undefined,
+                  last :: binary() | undefined}).
 
 -type(rsm_in() :: #rsm_in{}).
 

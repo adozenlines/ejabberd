@@ -5,7 +5,7 @@
 %%% Created : 27 Jan 2006 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2018   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -17,10 +17,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%-------------------------------------------------------------------
 
@@ -68,9 +67,6 @@ update(ModulesToUpdate) ->
 	    {error, Reason}
     end.
 
-%% OTP R14B03 and older provided release_handler_1:eval_script/3
-%% But OTP R14B04 and newer provide release_handler_1:eval_script/5
-%% Dialyzer reports a call to missing function; don't worry.
 eval_script(Script, Apps, LibDirs) ->
     release_handler_1:eval_script(Script, Apps, LibDirs, [], []).
 
@@ -139,24 +135,17 @@ build_script(Dir, UpdatedBeams) ->
 	  LowLevelScript,
 	  [{ejabberd, "", filename:join(Dir, "..")}]),
     Check1 = case Check of
-                 ok ->
-                     %% This clause is for OTP R14B03 and older.
-                     %% Newer Dialyzer reports a never match pattern; don't worry.
-                     ?DEBUG("script: ~p~n", [Script]),
-                     ?DEBUG("low level script: ~p~n", [LowLevelScript]),
-                     ?DEBUG("check: ~p~n", [Check]),
-                     ok;
-                 {ok, []} ->
-                     ?DEBUG("script: ~p~n", [Script]),
-                     ?DEBUG("low level script: ~p~n", [LowLevelScript]),
-                     ?DEBUG("check: ~p~n", [Check]),
-                     ok;
-                 _ ->
-                     ?ERROR_MSG("script: ~p~n", [Script]),
-                     ?ERROR_MSG("low level script: ~p~n", [LowLevelScript]),
-                     ?ERROR_MSG("check: ~p~n", [Check]),
-                     error
-             end,
+	{ok, []} ->
+	    ?DEBUG("script: ~p~n", [Script]),
+	    ?DEBUG("low level script: ~p~n", [LowLevelScript]),
+	    ?DEBUG("check: ~p~n", [Check]),
+	    ok;
+	_ ->
+	    ?ERROR_MSG("script: ~p~n", [Script]),
+	    ?ERROR_MSG("low level script: ~p~n", [LowLevelScript]),
+	    ?ERROR_MSG("check: ~p~n", [Check]),
+	    error
+    end,
     {Script, LowLevelScript, Check1}.
 
 %% Copied from Erlang/OTP file: lib/sasl/src/systools.hrl

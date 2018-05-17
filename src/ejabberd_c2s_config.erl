@@ -6,7 +6,7 @@
 %%% Created :  2 Nov 2007 by Mickael Remond <mremond@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2018   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -18,10 +18,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
@@ -34,15 +33,13 @@
 %% Get first c2s configuration limitations to apply it to other c2s
 %% connectors.
 get_c2s_limits() ->
-    case ejabberd_config:get_option(listen, fun(V) -> V end) of
-      undefined -> [];
-      C2SFirstListen ->
-	  case lists:keysearch(ejabberd_c2s, 2, C2SFirstListen) of
-	    false -> [];
-	    {value, {_Port, ejabberd_c2s, Opts}} ->
-		select_opts_values(Opts)
-	  end
+    C2SFirstListen = ejabberd_config:get_option(listen, []),
+    case lists:keysearch(ejabberd_c2s, 2, C2SFirstListen) of
+	false -> [];
+	{value, {_Port, ejabberd_c2s, Opts}} ->
+	    select_opts_values(Opts)
     end.
+
 %% Only get access, shaper and max_stanza_size values
 
 select_opts_values(Opts) ->

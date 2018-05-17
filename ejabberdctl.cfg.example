@@ -56,7 +56,7 @@
 # This communication is used by ejabberdctl command line tool,
 # and in a cluster of several ejabberd nodes.
 #
-# Default: 127.0.0.1
+# Default: 0.0.0.0
 #
 #INET_DIST_INTERFACE=127.0.0.1
 
@@ -147,6 +147,39 @@
 # Default: don't write PID file
 #
 #EJABBERD_PID_PATH=/var/run/ejabberd/ejabberd.pid
+
+#.
+#' EJABBERD_CONFIG_PATH: ejabberd configuration file
+#
+# Specify the full path to the ejabberd configuration file. If the file name has
+# yml or yaml extension, it is parsed as a YAML file; otherwise, Erlang syntax is
+# expected.
+#
+# Default: $ETC_DIR/ejabberd.yml
+#
+#EJABBERD_CONFIG_PATH=/etc/ejabberd/ejabberd.yml
+
+#.
+#' CONTRIB_MODULES_PATH: contributed ejabberd modules path
+#
+# Specify the full path to the contributed ejabberd modules. If the path is not
+# defined, ejabberd will use ~/.ejabberd-modules in home of user running ejabberd.
+#
+# Default: $HOME/.ejabberd-modules
+#
+#CONTRIB_MODULES_PATH=/opt/ejabberd-modules
+
+#.
+#' CONTRIB_MODULES_CONF_DIR: configuration directory for contributed modules
+#
+# Specify the full path to the configuration directory for contributed ejabberd
+# modules. In order to configure a module named mod_foo, a mod_foo.yml file can
+# be created in this directory. This file will then be used instead of the
+# default configuration file provided with the module.
+#
+# Default: $CONTRIB_MODULES_PATH/conf
+#
+#CONTRIB_MODULES_CONF_DIR=/etc/ejabberd/modules
 
 #.
 #'

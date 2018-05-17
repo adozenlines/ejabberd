@@ -18,9 +18,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 %%% GNU General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 %%% Modified by Sean Hinde <shinde@iee.org> 7th Dec 2000
 %%% Turned into gen_fsm, made non-blocking, added timers etc to support this.
@@ -63,7 +63,7 @@
 %%%     active_bind - sent bind() request and waiting for response
 %%%----------------------------------------------------------------------
 
--behaviour(gen_fsm).
+-behaviour(p1_fsm).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -80,7 +80,6 @@
 
 -export([get_status/1]).
 
-%% gen_fsm callbacks
 -export([init/1, connecting/2, connecting/3,
 	 wait_bind_response/3, active/3, active_bind/3,
 	 handle_event/3, handle_sync_event/4, handle_info/3,
@@ -89,7 +88,7 @@
 -export_type([filter/0]).
 
 -include("ELDAPv3.hrl").
-
+-include_lib("kernel/include/inet.hrl").
 -include("eldap.hrl").
 
 -define(LDAP_VERSION, 3).
@@ -127,36 +126,37 @@
 -record(eldap,
 	{version = ?LDAP_VERSION :: non_neg_integer(),
          hosts = []              :: [binary()],
-         host                    :: binary(),
+         host = undefined        :: binary() | undefined,
 	 port = 389              :: inet:port_number(),
          sockmod = gen_tcp       :: ssl | gen_tcp,
          tls = none              :: none | tls,
-         tls_options = []        :: [{cacertfile, string()} |
+         tls_options = []        :: [{certfile, string()} |
+				     {cacertfile, string()} |
                                      {depth, non_neg_integer()} |
                                      {verify, non_neg_integer()}],
-	 fd,
+	 fd                      :: gen_tcp:socket() | undefined,
          rootdn = <<"">>         :: binary(),
          passwd = <<"">>         :: binary(),
          id = 0                  :: non_neg_integer(),
          bind_timer = make_ref() :: reference(),
-	 dict = dict:new()       :: dict(),
-         req_q = queue:new()     :: queue()}).
+	 dict = dict:new()       :: ?TDICT,
+         req_q = queue:new()     :: ?TQUEUE}).
 
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
 start_link(Name) ->
-    Reg_name = jlib:binary_to_atom(<<"eldap_",
+    Reg_name = misc:binary_to_atom(<<"eldap_",
 				       Name/binary>>),
-    gen_fsm:start_link({local, Reg_name}, ?MODULE, [], []).
+    p1_fsm:start_link({local, Reg_name}, ?MODULE, [], []).
 
 -spec start_link(binary(), [binary()], inet:port_number(), binary(),
                  binary(), tlsopts()) -> any().
 
 start_link(Name, Hosts, Port, Rootdn, Passwd, Opts) ->
-    Reg_name = jlib:binary_to_atom(<<"eldap_",
+    Reg_name = misc:binary_to_atom(<<"eldap_",
 				       Name/binary>>),
-    gen_fsm:start_link({local, Reg_name}, ?MODULE,
+    p1_fsm:start_link({local, Reg_name}, ?MODULE,
 		       [Hosts, Port, Rootdn, Passwd, Opts], []).
 
 -spec get_status(handle()) -> any().
@@ -166,7 +166,7 @@ start_link(Name, Hosts, Port, Rootdn, Passwd, Opts) ->
 %%% --------------------------------------------------------------------
 get_status(Handle) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_all_state_event(Handle1, get_status).
+    p1_fsm:sync_send_all_state_event(Handle1, get_status).
 
 %%% --------------------------------------------------------------------
 %%% Shutdown connection (and process) asynchronous.
@@ -175,7 +175,7 @@ get_status(Handle) ->
 
 close(Handle) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:send_all_state_event(Handle1, close).
+    p1_fsm:send_all_state_event(Handle1, close).
 
 %%% --------------------------------------------------------------------
 %%% Add an entry. The entry field MUST NOT exist for the AddRequest
@@ -192,7 +192,7 @@ close(Handle) ->
 %%% --------------------------------------------------------------------
 add(Handle, Entry, Attributes) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_event(Handle1,
+    p1_fsm:sync_send_event(Handle1,
 			    {add, Entry, add_attrs(Attributes)}, ?CALL_TIMEOUT).
 
 %%% Do sanity check !
@@ -216,7 +216,7 @@ add_attrs(Attrs) ->
 %%% --------------------------------------------------------------------
 delete(Handle, Entry) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_event(Handle1, {delete, Entry},
+    p1_fsm:sync_send_event(Handle1, {delete, Entry},
 			    ?CALL_TIMEOUT).
 
 %%% --------------------------------------------------------------------
@@ -234,7 +234,7 @@ delete(Handle, Entry) ->
 
 modify(Handle, Object, Mods) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_event(Handle1, {modify, Object, Mods},
+    p1_fsm:sync_send_event(Handle1, {modify, Object, Mods},
 			    ?CALL_TIMEOUT).
 
 %%%
@@ -274,7 +274,7 @@ m(Operation, Type, Values) ->
 
 modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_event(Handle1,
+    p1_fsm:sync_send_event(Handle1,
 			    {modify_dn, Entry, NewRDN, bool_p(DelOldRDN),
 			     optional(NewSup)},
 			    ?CALL_TIMEOUT).
@@ -283,7 +283,7 @@ modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup) ->
 
 modify_passwd(Handle, DN, Passwd) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_event(Handle1,
+    p1_fsm:sync_send_event(Handle1,
 			    {modify_passwd, DN, Passwd}, ?CALL_TIMEOUT).
 
 %%% --------------------------------------------------------------------
@@ -298,7 +298,7 @@ modify_passwd(Handle, DN, Passwd) ->
  
 bind(Handle, RootDN, Passwd) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_event(Handle1, {bind, RootDN, Passwd},
+    p1_fsm:sync_send_event(Handle1, {bind, RootDN, Passwd},
 			    ?CALL_TIMEOUT).
 
 %%% Sanity checks !
@@ -356,7 +356,7 @@ search(Handle, L) when is_list(L) ->
 
 call_search(Handle, A) ->
     Handle1 = get_handle(Handle),
-    gen_fsm:sync_send_event(Handle1, {search, A},
+    p1_fsm:sync_send_event(Handle1, {search, A},
 			    ?CALL_TIMEOUT).
 
 -spec parse_search_args(search_args()) -> eldap_search().
@@ -507,16 +507,14 @@ present(Attribute) ->
 -type substr() :: [{initial | any | final, binary()}].
 -type 'SubstringFilter'() ::
         #'SubstringFilter'{type :: binary(),
-                           substrings :: {'SubstringFilter_substrings',
-                                          substr()}}.
+                           substrings :: substr()}.
 
 -type substrings() :: {substrings, 'SubstringFilter'()}.
 -spec substrings(binary(), substr()) -> substrings().
 
 substrings(Type, SubStr) ->
-    Ss = {'SubstringFilter_substrings', SubStr},
     {substrings,
-     #'SubstringFilter'{type = Type, substrings = Ss}}.
+     #'SubstringFilter'{type = Type, substrings = SubStr}}.
 
 -type match_opts() :: [{matchingRule | type, binary()} |
                        {dnAttributes, boolean()}].
@@ -551,7 +549,7 @@ extensibleMatch_opts([], MRA) -> MRA.
 get_handle(Pid) when is_pid(Pid) -> Pid;
 get_handle(Atom) when is_atom(Atom) -> Atom;
 get_handle(Name) when is_binary(Name) ->
-    jlib:binary_to_atom(<<"eldap_",
+    misc:binary_to_atom(<<"eldap_",
 			    Name/binary>>).
 
 %%%----------------------------------------------------------------------
@@ -568,11 +566,7 @@ get_handle(Name) when is_binary(Name) ->
 %% process.      
 %%----------------------------------------------------------------------
 init([Hosts, Port, Rootdn, Passwd, Opts]) ->
-    Encrypt = case gen_mod:get_opt(encrypt, Opts,
-                                   fun(tls) -> tls;
-                                      (starttls) -> starttls;
-                                      (none) -> none
-                                   end) of
+    Encrypt = case proplists:get_value(encrypt, Opts) of
                   tls -> tls;
                   _ -> none
 	      end,
@@ -584,46 +578,36 @@ init([Hosts, Port, Rootdn, Passwd, Opts]) ->
 		     end;
 		 PT -> PT
 	       end,
-    CacertOpts = case gen_mod:get_opt(
-                        tls_cacertfile, Opts,
-                        fun(S) when is_binary(S) ->
-                                binary_to_list(S);
-                           (undefined) ->
-                                undefined
-                        end) of
+    CertOpts = case proplists:get_value(tls_certfile, Opts) of
+		   undefined ->
+		       [];
+		   Path1 ->
+		       [{certfile, Path1}]
+	       end,
+    CacertOpts = case proplists:get_value(tls_cacertfile, Opts) of
                      undefined ->
                          [];
-                     Path ->
-                         [{cacertfile, Path}]
+                     Path2 ->
+                         [{cacertfile, Path2}]
                  end,
-    DepthOpts = case gen_mod:get_opt(
-                       tls_depth, Opts,
-                       fun(I) when is_integer(I), I>=0 ->
-                               I;
-                          (undefined) ->
-                               undefined
-                       end) of
+    DepthOpts = case proplists:get_value(tls_depth, Opts) of
                     undefined ->
                         [];
                     Depth ->
                         [{depth, Depth}]
                 end,
-    Verify = gen_mod:get_opt(tls_verify, Opts,
-                             fun(hard) -> hard;
-                                (soft) -> soft;
-                                (false) -> false
-                             end, false),
+    Verify = proplists:get_value(tls_verify, Opts, false),
     TLSOpts = if (Verify == hard orelse Verify == soft)
 		   andalso CacertOpts == [] ->
 		     ?WARNING_MSG("TLS verification is enabled but no CA "
 				  "certfiles configured, so verification "
 				  "is disabled.",
 				  []),
-		     [];
+		     CertOpts;
 		 Verify == soft ->
-		     [{verify, 1}] ++ CacertOpts ++ DepthOpts;
+		     [{verify, 1}] ++ CertOpts ++ CacertOpts ++ DepthOpts;
 		 Verify == hard ->
-		     [{verify, 2}] ++ CacertOpts ++ DepthOpts;
+		     [{verify, 2}] ++ CertOpts ++ CacertOpts ++ DepthOpts;
 		 true -> []
 	      end,
     {ok, connecting,
@@ -632,27 +616,10 @@ init([Hosts, Port, Rootdn, Passwd, Opts]) ->
 	    id = 0, dict = dict:new(), req_q = queue:new()},
      0}.
 
-%%----------------------------------------------------------------------
-%% Func: StateName/2
-%% Called when gen_fsm:send_event/2,3 is invoked (async)
-%% Returns: {next_state, NextStateName, NextStateData}          |
-%%          {next_state, NextStateName, NextStateData, Timeout} |
-%%          {stop, Reason, NewStateData}                         
-%%----------------------------------------------------------------------
 connecting(timeout, S) ->
     {ok, NextState, NewS} = connect_bind(S),
     {next_state, NextState, NewS}.
 
-%%----------------------------------------------------------------------
-%% Func: StateName/3
-%% Called when gen_fsm:sync_send_event/2,3 is invoked.
-%% Returns: {next_state, NextStateName, NextStateData}            |
-%%          {next_state, NextStateName, NextStateData, Timeout}   |
-%%          {reply, Reply, NextStateName, NextStateData}          |
-%%          {reply, Reply, NextStateName, NextStateData, Timeout} |
-%%          {stop, Reason, NewStateData}                          |
-%%          {stop, Reason, Reply, NewStateData}                    
-%%----------------------------------------------------------------------
 connecting(Event, From, S) ->
     Q = queue:in({Event, From}, S#eldap.req_q),
     {next_state, connecting, S#eldap{req_q = Q}}.
@@ -670,7 +637,7 @@ active(Event, From, S) ->
 
 %%----------------------------------------------------------------------
 %% Func: handle_event/3
-%% Called when gen_fsm:send_all_state_event/2 is invoked.
+%% Called when p1_fsm:send_all_state_event/2 is invoked.
 %% Returns: {next_state, NextStateName, NextStateData}          |
 %%          {next_state, NextStateName, NextStateData, Timeout} |
 %%          {stop, Reason, NewStateData}                         
@@ -681,34 +648,15 @@ handle_event(close, _StateName, S) ->
 handle_event(_Event, StateName, S) ->
     {next_state, StateName, S}.
 
-%%----------------------------------------------------------------------
-%% Func: handle_sync_event/4
-%% Called when gen_fsm:sync_send_all_state_event/2,3 is invoked
-%% Returns: {next_state, NextStateName, NextStateData}            |
-%%          {next_state, NextStateName, NextStateData, Timeout}   |
-%%          {reply, Reply, NextStateName, NextStateData}          |
-%%          {reply, Reply, NextStateName, NextStateData, Timeout} |
-%%          {stop, Reason, NewStateData}                          |
-%%          {stop, Reason, Reply, NewStateData}                    
-%%----------------------------------------------------------------------
 handle_sync_event(_Event, _From, StateName, S) ->
     {reply, {StateName, S}, StateName, S}.
-
-%%----------------------------------------------------------------------
-%% Func: handle_info/3
-%% Returns: {next_state, NextStateName, NextStateData}          |
-%%          {next_state, NextStateName, NextStateData, Timeout} |
-%%          {stop, Reason, NewStateData}                         
-%%          {stop, Reason, NewStateData}
-%%----------------------------------------------------------------------
 
 %%
 %% Packets arriving in various states
 %%
 handle_info({Tag, _Socket, Data}, connecting, S)
     when Tag == tcp; Tag == ssl ->
-    ?DEBUG("tcp packet received when disconnected!~n~p",
-	   [Data]),
+    ?DEBUG("tcp packet received when disconnected!~n~p", [Data]),
     {next_state, connecting, S};
 handle_info({Tag, _Socket, Data}, wait_bind_response, S)
     when Tag == tcp; Tag == ssl ->
@@ -727,13 +675,12 @@ handle_info({Tag, _Socket, Data}, wait_bind_response, S)
 	  {next_state, connecting, close_and_retry(S)}
     end;
 handle_info({Tag, _Socket, Data}, StateName, S)
-    when (StateName == active orelse
-	    StateName == active_bind)
+    when (StateName == active orelse StateName == active_bind)
 	   andalso (Tag == tcp orelse Tag == ssl) ->
     case catch recvd_packet(Data, S) of
       {response, Response, RequestType} ->
 	  NewS = case Response of
-		   {reply, Reply, To, S1} -> gen_fsm:reply(To, Reply), S1;
+		   {reply, Reply, To, S1} -> p1_fsm:reply(To, Reply), S1;
 		   {ok, S1} -> S1
 		 end,
 	  if StateName == active_bind andalso
@@ -762,15 +709,14 @@ handle_info({timeout, Timer, {cmd_timeout, Id}},
 	    StateName, S) ->
     case cmd_timeout(Timer, Id, S) of
       {reply, To, Reason, NewS} ->
-	  gen_fsm:reply(To, Reason),
+	  p1_fsm:reply(To, Reason),
 	  {next_state, StateName, NewS};
       {error, _Reason} -> {next_state, StateName, S}
     end;
 handle_info({timeout, retry_connect}, connecting, S) ->
     {ok, NextState, NewS} = connect_bind(S),
     {next_state, NextState, NewS};
-handle_info({timeout, _Timer, bind_timeout},
-	    wait_bind_response, S) ->
+handle_info({timeout, _Timer, bind_timeout}, wait_bind_response, S) ->
     {next_state, connecting, close_and_retry(S)};
 %%
 %% Make sure we don't fill the message queue with rubbish
@@ -827,17 +773,15 @@ send_command(Command, From, S) ->
     {Name, Request} = gen_req(Command),
     Message = #'LDAPMessage'{messageID = Id,
 			     protocolOp = {Name, Request}},
-    ?DEBUG("~p~n", [{Name, Request}]),
-    {ok, Bytes} = asn1rt:encode('ELDAPv3', 'LDAPMessage',
-				Message),
+    ?DEBUG("~p~n", [{Name, ejabberd_config:may_hide_data(Request)}]),
+    {ok, Bytes} = 'ELDAPv3':encode('LDAPMessage', Message),
     case (S#eldap.sockmod):send(S#eldap.fd, Bytes) of
       ok ->
-	  Timer = erlang:start_timer(?CMD_TIMEOUT, self(),
-				     {cmd_timeout, Id}),
-	  New_dict = dict:store(Id,
-				[{Timer, Command, From, Name}], S#eldap.dict),
-	  {ok, S#eldap{id = Id, dict = New_dict}};
-      Error -> Error
+	Timer = erlang:start_timer(?CMD_TIMEOUT, self(), {cmd_timeout, Id}),
+	New_dict = dict:store(Id, [{Timer, Command, From, Name}], S#eldap.dict),
+	{ok, S#eldap{id = Id, dict = New_dict}};
+      Error ->
+	Error
     end.
 
 gen_req({search, A}) ->
@@ -863,11 +807,10 @@ gen_req({modify_dn, Entry, NewRDN, DelOldRDN,
      #'ModifyDNRequest'{entry = Entry, newrdn = NewRDN,
 			deleteoldrdn = DelOldRDN, newSuperior = NewSup}};
 gen_req({modify_passwd, DN, Passwd}) ->
-    {ok, ReqVal} = asn1rt:encode('ELDAPv3',
-				 'PasswdModifyRequestValue',
-				 #'PasswdModifyRequestValue'{userIdentity = DN,
-							     newPasswd =
-								 Passwd}),
+    {ok, ReqVal} = 'ELDAPv3':encode('PasswdModifyRequestValue',
+				    #'PasswdModifyRequestValue'{userIdentity = DN,
+								newPasswd =
+								    Passwd}),
     {extendedReq,
      #'ExtendedRequest'{requestName = ?passwdModifyOID,
 			requestValue = iolist_to_binary(ReqVal)}};
@@ -887,7 +830,7 @@ gen_req({bind, RootDN, Passwd}) ->
 %%  {'EXIT', Reason} - Broke
 %%-----------------------------------------------------------------------
 recvd_packet(Pkt, S) ->
-    case asn1rt:decode('ELDAPv3', 'LDAPMessage', Pkt) of
+    case 'ELDAPv3':decode('LDAPMessage', Pkt) of
       {ok, Msg} ->
 	  Op = Msg#'LDAPMessage'.protocolOp,
 	  ?DEBUG("~p", [Op]),
@@ -1005,7 +948,7 @@ get_op_rec(Id, Dict) ->
 %%  {'EXIT', Reason} - Broken packet
 %%-----------------------------------------------------------------------
 recvd_wait_bind_response(Pkt, S) ->
-    case asn1rt:decode('ELDAPv3', 'LDAPMessage', Pkt) of
+    case 'ELDAPv3':decode('LDAPMessage', Pkt) of
       {ok, Msg} ->
 	  ?DEBUG("~p", [Msg]),
 	  check_id(S#eldap.id, Msg#'LDAPMessage'.messageID),
@@ -1103,8 +1046,6 @@ polish([], Res, Ref) -> {Res, Ref}.
 %%-----------------------------------------------------------------------
 connect_bind(S) ->
     Host = next_host(S#eldap.host, S#eldap.hosts),
-    ?INFO_MSG("LDAP connection on ~s:~p",
-	      [Host, S#eldap.port]),
     Opts = if S#eldap.tls == tls ->
 		  [{packet, asn1}, {active, true}, {keepalive, true},
 		   binary
@@ -1113,16 +1054,14 @@ connect_bind(S) ->
 		  [{packet, asn1}, {active, true}, {keepalive, true},
 		   {send_timeout, ?SEND_TIMEOUT}, binary]
 	   end,
+    ?DEBUG("Connecting to LDAP server at ~s:~p with options ~p",
+	   [Host, S#eldap.port, Opts]),
     HostS = binary_to_list(Host),
-    SocketData = case S#eldap.tls of
-		   tls ->
-		       SockMod = ssl, ssl:connect(HostS, S#eldap.port, Opts);
-		   %% starttls -> %% TODO: Implement STARTTLS;
-		   _ ->
-		       SockMod = gen_tcp,
-		       gen_tcp:connect(HostS, S#eldap.port, Opts)
-		 end,
-    case SocketData of
+    SockMod = case S#eldap.tls of
+		  tls -> ssl;
+		  _ -> gen_tcp
+	      end,
+    case connect(HostS, S#eldap.port, SockMod, Opts) of
       {ok, Socket} ->
 	  case bind_request(Socket, S#eldap{sockmod = SockMod}) of
 	    {ok, NewS} ->
@@ -1137,9 +1076,8 @@ connect_bind(S) ->
 		{ok, connecting, NewS#eldap{host = Host}}
 	  end;
       {error, Reason} ->
-	  ?ERROR_MSG("LDAP connection failed:~n** Server: "
-		     "~s:~p~n** Reason: ~p~n** Socket options: ~p",
-		     [Host, S#eldap.port, Reason, Opts]),
+	  ?ERROR_MSG("LDAP connection to ~s:~b failed: ~s",
+		     [Host, S#eldap.port, format_error(SockMod, Reason)]),
 	  NewS = close_and_retry(S),
 	  {ok, connecting, NewS#eldap{host = Host}}
     end.
@@ -1151,9 +1089,8 @@ bind_request(Socket, S) ->
 			 authentication = {simple, S#eldap.passwd}},
     Message = #'LDAPMessage'{messageID = Id,
 			     protocolOp = {bindRequest, Req}},
-    ?DEBUG("Bind Request Message:~p~n", [Message]),
-    {ok, Bytes} = asn1rt:encode('ELDAPv3', 'LDAPMessage',
-				Message),
+    ?DEBUG("Bind Request Message:~p~n", [ejabberd_config:may_hide_data(Message)]),
+    {ok, Bytes} = 'ELDAPv3':encode('LDAPMessage', Message),
     case (S#eldap.sockmod):send(Socket, Bytes) of
       ok -> {ok, S#eldap{id = Id}};
       Error -> Error
@@ -1166,24 +1103,6 @@ next_host(Host,
 	  Hosts) ->                       % Find next in turn
     next_host(Host, Hosts, Hosts).
 
-%%% --------------------------------------------------------------------
-%%% Verify the input data
-%%% --------------------------------------------------------------------
-%%% --------------------------------------------------------------------
-%%% Get and Validate the initial configuration
-%%% --------------------------------------------------------------------
-%% get_atom(Key, List) ->
-%%     case lists:keysearch(Key, 1, List) of
-%% 	{value, {Key, Value}} when is_atom(Value) ->
-%% 	    Value;
-%% 	{value, {Key, _Value}} ->
-%% 	    throw({error, "Bad Value in Config for " ++ atom_to_list(Key)});
-%% 	false ->
-%% 	    throw({error, "No Entry in Config for " ++ atom_to_list(Key)})
-%%     end.
-%%% --------------------------------------------------------------------
-%%% Other Stuff
-%%% --------------------------------------------------------------------
 next_host(Host, [Host], Hosts) ->
     hd(Hosts);    % Wrap back to first
 next_host(Host, [Host | Tail], _Hosts) ->
@@ -1197,3 +1116,78 @@ bump_id(#eldap{id = Id})
     when Id > (?MAX_TRANSACTION_ID) ->
     ?MIN_TRANSACTION_ID;
 bump_id(#eldap{id = Id}) -> Id + 1.
+
+format_error(SockMod, Reason) ->
+    Txt = case SockMod of
+	      ssl -> ssl:format_error(Reason);
+	      gen_tcp -> inet:format_error(Reason)
+	  end,
+    case Txt of
+	"unknown POSIX error" ->
+	    lists:flatten(io_lib:format("~p", [Reason]));
+	_ ->
+	    Txt
+    end.
+
+%%--------------------------------------------------------------------
+%% Connecting stuff
+%%--------------------------------------------------------------------
+-define(CONNECT_TIMEOUT, timer:seconds(15)).
+-define(DNS_TIMEOUT, timer:seconds(5)).
+
+connect(Host, Port, Mod, Opts) ->
+    case lookup(Host) of
+	{ok, AddrsFamilies} ->
+	    do_connect(AddrsFamilies, Port, Mod, Opts, {error, nxdomain});
+	{error, _} = Err ->
+	    Err
+    end.
+
+do_connect([{IP, Family}|AddrsFamilies], Port, Mod, Opts, _Err) ->
+    case Mod:connect(IP, Port, [Family|Opts], ?CONNECT_TIMEOUT) of
+	{ok, Sock} ->
+	    {ok, Sock};
+	{error, _} = Err ->
+	    do_connect(AddrsFamilies, Port, Mod, Opts, Err)
+    end;
+do_connect([], _Port, _Mod, _Opts, Err) ->
+    Err.
+
+lookup(Host) ->
+    case inet:parse_address(Host) of
+	{ok, IP} ->
+	    {ok, [{IP, get_addr_type(IP)}]};
+	{error, _} ->
+	    do_lookup([{Host, Family} || Family <- [inet6, inet]],
+		      [], {error, nxdomain})
+    end.
+
+do_lookup([{Host, Family}|HostFamilies], AddrFamilies, Err) ->
+    case inet:gethostbyname(Host, Family, ?DNS_TIMEOUT) of
+	{ok, HostEntry} ->
+	    Addrs = host_entry_to_addrs(HostEntry),
+	    AddrFamilies1 = [{Addr, Family} || Addr <- Addrs],
+	    do_lookup(HostFamilies,
+		      AddrFamilies ++ AddrFamilies1,
+		      Err);
+	{error, _} = Err1 ->
+	    do_lookup(HostFamilies, AddrFamilies, Err1)
+    end;
+do_lookup([], [], Err) ->
+    Err;
+do_lookup([], AddrFamilies, _Err) ->
+    {ok, AddrFamilies}.
+
+host_entry_to_addrs(#hostent{h_addr_list = AddrList}) ->
+    lists:filter(
+      fun(Addr) ->
+	      try get_addr_type(Addr) of
+		  _ -> true
+	      catch _:badarg ->
+		      false
+	      end
+      end, AddrList).
+
+get_addr_type({_, _, _, _}) -> inet;
+get_addr_type({_, _, _, _, _, _, _, _}) -> inet6;
+get_addr_type(_) -> erlang:error(badarg).

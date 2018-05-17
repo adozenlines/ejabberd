@@ -1,6 +1,6 @@
 %%%----------------------------------------------------------------------
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2018   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -12,10 +12,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
@@ -39,9 +38,12 @@
 -define(AC_MAX_AGE,
 	{<<"Access-Control-Max-Age">>, <<"86400">>}).
 
+-define(NO_CACHE,
+        {<<"Cache-Control">>, <<"max-age=0, no-cache, no-store">>}).
+
 -define(OPTIONS_HEADER,
 	[?CT_PLAIN, ?AC_ALLOW_ORIGIN, ?AC_ALLOW_METHODS,
 	 ?AC_ALLOW_HEADERS, ?AC_MAX_AGE]).
 
 -define(HEADER,
-	[?CT_XML, ?AC_ALLOW_ORIGIN, ?AC_ALLOW_HEADERS]).
+	[?CT_XML, ?AC_ALLOW_ORIGIN, ?AC_ALLOW_HEADERS, ?NO_CACHE]).

@@ -1,3 +1,4 @@
+%% -*- coding: latin-1 -*-
 {"Access Configuration","การกำหนดค่าการเข้าถึง"}.
 {"Access Control List Configuration","การกำหนดค่ารายการควบคุมการเข้าถึง"}.
 {"Access control lists","รายการควบคุมการเข้าถึง"}.
@@ -13,18 +14,15 @@
 {"Administration of ","การดูแล "}.
 {"Administrator privileges required","ต้องมีสิทธิพิเศษของผู้ดูแลระบบ"}.
 {"All activity","กิจกรรมทั้งหมด"}.
-{"Allow this Jabber ID to subscribe to this pubsub node?","อนุญาตให้ Jabber ID นี้เข้าร่วมเป็นสมาชิกของโหนด pubsub หรือไม่"}.
 {"Allow users to query other users","อนุญาตให้ผู้ใช้ถามคำถามกับผู้ใช้คนอื่นๆ ได้"}.
 {"Allow users to send invites","อนุญาตให้ผู้ใช้ส่งคำเชิญถึงกันได้"}.
 {"Allow users to send private messages","อนุญาตให้ผู้ใช้ส่งข้อความส่วนตัว"}.
 {"All Users","ผู้ใช้ทั้งหมด"}.
 {"Announcements","ประกาศ"}.
-{"anyone","ทุกคน"}.
 {"April","เมษายน"}.
 {"August","สิงหาคม"}.
 {"Backup","การสำรองข้อมูล "}.
 {"Backup Management","การจัดการข้อมูลสำรอง"}.
-{"Backup of ","การสำรองข้อมูล"}.
 {"Backup to File at ","สำรองไฟล์ข้อมูลที่"}.
 {"Bad format","รูปแบบที่ไม่ถูกต้อง"}.
 {"Birthday","วันเกิด"}.
@@ -44,17 +42,13 @@
 {"Country","ประเทศ"}.
 {"CPU Time:","เวลาการทำงานของ CPU:"}.
 {"Database","ฐานข้อมูล"}.
-{"Database Tables at ","ตารางฐานข้อมูลที่"}.
 {"Database Tables Configuration at ","การกำหนดค่าตารางฐานข้อมูลที่"}.
 {"December","ธันวาคม"}.
 {"Default users as participants","ผู้ใช้เริ่มต้นเป็นผู้เข้าร่วม"}.
-{"Delete","ลบ"}.
 {"Delete message of the day","ลบข้อความของวัน"}.
 {"Delete message of the day on all hosts","ลบข้อความของวันบนโฮสต์ทั้งหมด"}.
 {"Delete Selected","ลบข้อความที่เลือก"}.
 {"Delete User","ลบผู้ใช้"}.
-{"Deliver event notifications","ส่งการแจ้งเตือนเหตุการณ์"}.
-{"Deliver payloads with event notifications","ส่งส่วนของข้อมูล (payload) พร้อมกับการแจ้งเตือนเหตุการณ์"}.
 {"Description:","รายละเอียด:"}.
 {"Disc only copy","คัดลอกเฉพาะดิสก์"}.
 {"Displayed Groups:","กลุ่มที่แสดง:"}.
@@ -78,7 +72,6 @@
 {"Erlang Jabber Server","Erlang Jabber Server"}.
 {"Family Name","นามสกุล"}.
 {"February","กุมภาพันธ์"}.
-{"Fill in fields to search for any matching Jabber User","กรอกข้อมูลลงในฟิลด์เพื่อค้นหาผู้ใช้ Jabber ที่ตรงกัน"}.
 {"Fill in the form to search for any matching Jabber User (Add * to the end of field to match substring)","กรอกข้อมูลในแบบฟอร์มเพื่อค้นหาผู้ใช้ Jabber ที่ตรงกัน (ใส่เครื่องหมาย * ที่ท้ายสุดของฟิลด์เพื่อจับคู่กับสตริงย่อย)"}.
 {"Friday","วันศุกร์"}.
 {"From","จาก"}.
@@ -102,8 +95,6 @@
 {"Import Users From jabberd14 Spool Files","อิมพอร์ตผู้ใช้จากไฟล์เก็บพักข้อมูล jabberd14"}.
 {"Improper message type","ประเภทข้อความไม่เหมาะสม"}.
 {"Incorrect password","รหัสผ่านไม่ถูกต้อง"}.
-{"Invalid affiliation: ~s","การเข้าร่วมที่ไม่ถูกต้อง: ~s"}.
-{"Invalid role: ~s","บทบาทไม่ถูกต้อง: ~s"}.
 {"IP addresses","ที่อยู่ IP"}.
 {"IRC Transport","การส่ง IRC"}.
 {"IRC Username","ชื่อผู้ใช้ IRC"}.
@@ -111,7 +102,6 @@
 {"It is not allowed to send private messages of type \"groupchat\"","ไม่อนุญาตให้ส่งข้อความส่วนตัวไปยัง \"กลุ่มสนทนา\""}.
 {"It is not allowed to send private messages to the conference","ไม่อนุญาตให้ส่งข้อความส่วนตัวไปยังห้องประชุม"}.
 {"Jabber ID","Jabber ID"}.
-{"Jabber ID ~s is invalid","Jabber ID ~s ไม่ถูกต้อง"}.
 {"January","มกราคม"}.
 {"joins the room","เข้าห้องสนทนานี้"}.
 {"July","กรกฎาคม"}.
@@ -132,18 +122,14 @@
 {"Make room public searchable","สร้างเป็นห้องที่บุคคลทั่วไปสามารถค้นหาได้"}.
 {"March","มีนาคม"}.
 {"Maximum Number of Occupants","จำนวนผู้ครอบครองห้องสูงสุด"}.
-{"Max # of items to persist","จำนวนสูงสุดของรายการที่ยืนยัน"}.
-{"Max payload size in bytes","ขนาดสูงสุดของส่วนของข้อมูล (payload) มีหน่วยเป็นไบต์"}.
 {"May","พฤษภาคม"}.
 {"Members:","สมาชิก:"}.
 {"Memory","หน่วยความจำ"}.
 {"Message body","เนื้อหาของข้อความ"}.
 {"Middle Name","ชื่อกลาง"}.
 {"Moderator privileges required","ต้องมีสิทธิพิเศษของผู้ดูแลการสนทนา"}.
-{"moderators only","สำหรับผู้ดูแลการสนทนาเท่านั้น"}.
 {"Module","โมดูล"}.
 {"Modules","โมดูล"}.
-{"Modules at ","โมดูลที่ "}.
 {"Monday","วันจันทร์"}.
 {"Name:","ชื่อ:"}.
 {"Name","ชื่อ"}.
@@ -153,18 +139,10 @@
 {"Nickname ~s does not exist in the room","ไม่มีชื่อเล่น ~s อยู่ในห้องนี้"}.
 {"No body provided for announce message","ไม่ได้ป้อนเนื้อหาสำหรับข้อความที่ประกาศ"}.
 {"No Data","ไม่มีข้อมูล"}.
-{"Node ","โหนด "}.
-{"Node ID","ID โหนด"}.
 {"Node not found","ไม่พบโหนด"}.
 {"Nodes","โหนด"}.
-{"No limit","ไม่จำกัด"}.
 {"None","ไม่มี"}.
-{"No resource provided","ไม่ได้ระบุข้อมูล"}.
-{"Notify subscribers when items are removed from the node","แจ้งเตือนผู้สมัครสมาชิกเมื่อรายการถูกลบออกจากโหนด"}.
-{"Notify subscribers when the node configuration changes","แจ้งเตือนผู้สมัครสมาชิกเมื่อการกำหนดค่าโหนดเปลี่ยนแปลง"}.
-{"Notify subscribers when the node is deleted","แจ้งเตือนผู้สมัครสมาชิกเมื่อโหนดถูกลบ"}.
 {"November","พฤศจิกายน"}.
-{"Number of occupants","จำนวนผู้ครอบครองห้อง"}.
 {"Number of online users","จำนวนผู้ใช้ออนไลน์"}.
 {"Number of registered users","จำนวนผู้ใช้ที่ลงทะเบียน"}.
 {"October","ตุลาคม"}.
@@ -174,7 +152,6 @@
 {"Online","ออนไลน์"}.
 {"Online Users:","ผู้ใช้ออนไลน์:"}.
 {"Online Users","ผู้ใช้ออนไลน์"}.
-{"Only deliver notifications to available users","ส่งการแจ้งเตือนถึงผู้ใช้ที่สามารถติดต่อได้เท่านั้น"}.
 {"Only occupants are allowed to send messages to the conference","ผู้ครอบครองห้องเท่านั้นที่ได้รับอนุญาตให้ส่งข้อความไปยังห้องประชุม"}.
 {"Only occupants are allowed to send queries to the conference","ผู้ครอบครองห้องเท่านั้นที่ได้รับอนุญาตให้ส่งกระทู้ถามไปยังห้องประชุม"}.
 {"Only service administrators are allowed to send service messages","ผู้ดูแลด้านการบริการเท่านั้นที่ได้รับอนุญาตให้ส่งข้อความการบริการ"}.
@@ -183,7 +160,6 @@
 {"Organization Unit","หน่วยขององค์กร"}.
 {"Outgoing s2s Connections:","การเชื่อมต่อ s2s ขาออก:"}.
 {"Outgoing s2s Connections","การเชื่อมต่อ s2s ขาออก"}.
-{"Outgoing s2s Servers:","เซิร์ฟเวอร์ s2s ขาออก:"}.
 {"Owner privileges required","ต้องมีสิทธิพิเศษของเจ้าของ"}.
 {"Packet","แพ็กเก็ต"}.
 {"Password:","รหัสผ่าน:"}.
@@ -193,11 +169,9 @@
 {"Path to File","พาธของไฟล์ข้อมูล"}.
 {"Pending","ค้างอยู่"}.
 {"Period: ","ระยะเวลา:"}.
-{"Persist items to storage","ยืนยันรายการที่จะจัดเก็บ"}.
 {"Ping","Ping"}.
 {"Pong","Pong"}.
 {"Port","พอร์ท"}.
-{"Present real Jabber IDs to","แสดง Jabber IDs ที่ถูกต้องแก่"}.
 {"private, ","ส่วนตัว, "}.
 {"Publish-Subscribe","เผยแพร่-สมัครเข้าใช้งาน"}.
 {"PubSub subscriber request","คำร้องขอของผู้สมัครเข้าใช้งาน PubSub"}.
@@ -247,8 +221,6 @@
 {"Show Ordinary Table","แสดงตารางทั่วไป"}.
 {"Shut Down Service","ปิดการบริการ"}.
 {"~s invites you to the room ~s","~s เชิญคุณเข้าร่วมสนทนาในห้อง ~s"}.
-{"Specify the access model","ระบุโมเดลการเข้าถึง"}.
-{"Specify the publisher model","ระบุโมเดลผู้เผยแพร่"}.
 {"~s's Offline Messages Queue","~s's ลำดับข้อความออฟไลน์"}.
 {"Start","เริ่ม"}.
 {"Start Modules","เริ่มโมดูล"}.
@@ -265,7 +237,6 @@
 {"Subject","หัวเรื่อง"}.
 {"Submit","ส่ง"}.
 {"Submitted","ส่งแล้ว"}.
-{"Subscriber Address","ที่อยู่ของผู้สมัคร"}.
 {"Subscription","การสมัครสมาชิก"}.
 {"Sunday","วันอาทิตย์"}.
 {"the password is","รหัสผ่านคือ"}.
@@ -281,7 +252,6 @@
 {"Transactions Logged:","ทรานแซกชันที่บันทึก:"}.
 {"Transactions Restarted:","ทรานแซกชันที่เริ่มทำงานใหม่อีกครั้ง:"}.
 {"Tuesday","วันอังคาร"}.
-{"Update ","อัพเดต "}.
 {"Update","อัพเดต"}.
 {"Update message of the day (don't send)","อัพเดตข้อความของวัน (ไม่ต้องส่ง)"}.
 {"Update message of the day on all hosts (don't send)","อัพเดตข้อความของวันบนโฮสต์ทั้งหมด (ไม่ต้องส่ง) "}.
@@ -289,7 +259,6 @@
 {"Update script","อัพเดตสคริปต์"}.
 {"Uptime:","เวลาการทำงานต่อเนื่อง:"}.
 {"Use of STARTTLS required","ต้องใช้ STARTTLS"}.
-{"User ","ผู้ใช้"}.
 {"User","ผู้ใช้"}.
 {"User Management","การจัดการผู้ใช้"}.
 {"Users","ผู้ใช้"}.
@@ -299,11 +268,8 @@
 {"Virtual Hosts","โฮสต์เสมือน"}.
 {"Visitors are not allowed to send messages to all occupants","ผู้เยี่ยมเยือนไม่ได้รับอนุญาตให้ส่งข้อความถึงผู้ครอบครองห้องทั้งหมด"}.
 {"Wednesday","วันพุธ"}.
-{"When to send the last published item","เวลาที่ส่งรายการที่เผยแพร่ครั้งล่าสุด"}.
-{"Whether to allow subscriptions","อนุญาตให้เข้าร่วมเป็นสมาชิกหรือไม่"}.
 {"You have been banned from this room","คุณถูกสั่งห้ามไมให้เข้าห้องนี้"}.
 {"You must fill in field \"Nickname\" in the form","คุณต้องกรอกฟิลด์ \"Nickname\" ในแบบฟอร์ม"}.
 {"You need an x:data capable client to configure mod_irc settings","คุณต้องใช้ไคลเอ็นต์ที่รองรับ x:data เพื่อกำหนดการตั้งค่า mod_irc"}.
-{"You need an x:data capable client to configure room","คุณต้องใช้ไคลเอ็นต์ที่รองรับ x:data เพื่อกำหนดค่าห้องสนทนา "}.
 {"You need an x:data capable client to search","คุณต้องใช้ไคลเอ็นต์ที่รองรับ x:data เพื่อค้นหา"}.
 {"Your contact offline message queue is full. The message has been discarded.","ลำดับข้อความออฟไลน์ของผู้ที่ติดต่อของคุณเต็มแล้ว ข้อความถูกลบทิ้งแล้ว"}.

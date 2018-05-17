@@ -1,6 +1,6 @@
 %%%----------------------------------------------------------------------
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2018   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -12,15 +12,15 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
-%% This macro returns a string of the ejabberd version running, e.g. "2.3.4"
-%% If the ejabberd application description isn't loaded, returns atom: undefined
+-ifndef(EJABBERD_HRL).
+-define(EJABBERD_HRL, true).
+
 -define(VERSION, ejabberd_config:get_version()).
 
 -define(MYHOSTS, ejabberd_config:get_myhosts()).
@@ -31,13 +31,15 @@
 
 -define(MSGS_DIR, filename:join(["priv", "msgs"])).
 
--define(CONFIG_PATH, <<"ejabberd.cfg">>).
+-define(SQL_DIR, filename:join(["priv", "sql"])).
 
--define(LOG_PATH, <<"ejabberd.log">>).
+-define(CONFIG_PATH, <<"ejabberd.yml">>).
+
+-define(LOG_PATH, "ejabberd.log").
 
 -define(EJABBERD_URI, <<"http://www.process-one.net/en/ejabberd/">>).
 
--define(S2STIMEOUT, 600000).
+-define(COPYRIGHT, "Copyright (c) ProcessOne").
 
 %%-define(DBGFSM, true).
 
@@ -50,3 +52,21 @@
 -type scram() :: #scram{}.
 
 -define(SCRAM_DEFAULT_ITERATION_COUNT, 4096).
+
+-ifdef(ERL_DEPRECATED_TYPES).
+
+-define(TDICT, dict()).
+-define(TGB_TREE, gb_tree()).
+-define(TGB_SET, gb_set()).
+-define(TQUEUE, queue()).
+
+-else.
+
+-define(TDICT, dict:dict()).
+-define(TGB_TREE, gb_trees:tree()).
+-define(TGB_SET, gb_sets:set()).
+-define(TQUEUE, queue:queue()).
+
+-endif.
+
+-endif.
